@@ -1,17 +1,19 @@
+# Stream lit
 import streamlit as st
 import pandas as pd
+# Generacion de PDF
 from fpdf import FPDF
+# Tiempo y hora (Calendario)
 import datetime
-import math
 
-# --- CONFIGURACIÓN DE PÁGINA Y ESTILOS ---
+# Configuracion de pagina y estilos
 st.set_page_config(page_title="Dietas Carla Natura", layout="wide", page_icon="⚜️")
 
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
     .stButton>button { 
-        background-color: #015837; 
+        background-color: #264d21; 
         color: white; 
         border-radius: 10px; 
         height: 3em; 
@@ -23,28 +25,28 @@ st.markdown("""
         padding: 15px; 
         border-radius: 10px; 
         box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
-        border-left: 5px solid #ffffff;
+        border-left: 5px solid #264d21;
     }
     .stMetric div {
-        color: #015837 !important;
+        color: #264d21 !important;
     }
-    h1 { color: #ffffff; text-align: center; }
-    h3 { color: #ffffff; border-bottom: 2px solid #ffffff; padding-bottom: 5px; margin-top: 30px; }
-    hr { border-top: 2px solid #015837 !important; }
+    h1 { color: #264d21; text-align: center; }
+    h3 { color: #264d21; border-bottom: 2px solid #264d21; padding-bottom: 5px; margin-top: 30px; }
+    hr { border-top: 2px solid #264d21 !important; }
     
     span[data-baseweb="tag"] {
-        background-color: #015837 !important;
+        background-color: #264d21 !important;
     }
     div[data-baseweb="select"] {
-        border-color: #015837 !important;
+        border-color: #264d21 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONEXIÓN ---
-SHEET_ID = "1UDTY__cuqBq7SZ6qKcsKJ3CQ_KcKUZALUBm86E_b8-o"
+# Conexion con nuestros Excel (BBDD)
+SHEET_ID = "14hOSakCs0yfF7WFB1nQAW0b_LqRRHkIxLzHY1u1V9PA"
 URL_ING = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0"
-GID_PLANTILLAS = "908771195" 
+GID_PLANTILLAS = "2040007005" 
 URL_PLAN = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_PLANTILLAS}"
 
 @st.cache_data(ttl=5)
@@ -56,21 +58,21 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
-def generar_pdf(df_final, total_pax, re_total, resumen_menu, censo_dict):
+# --- FUNCIÓN PDF CORREGIDA (AHORA ACEPTA 3 ARGUMENTOS) ---
+def generar_pdf(pesoDeseado, resumen_menu, df_compra):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # --- PÁGINA 1: PLANIFICACIÓN ---
+    # --- PÁGINA 1: MENÚ ---
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.set_text_color(27, 69, 180) 
-    pdf.cell(w=200, h=10, txt="PLANIFICACION DE MENU - GSBV", border=0, ln=1, align="C")
+    pdf.set_text_color(38, 77, 33) 
+    pdf.cell(w=200, h=10, txt="Dietas Semanales Carla Natura", border=0, ln=1, align="C")
     pdf.ln(10)
     
-    pdf.set_text_color(0, 0, 0)
     for dia, momentos_dict in resumen_menu.items():
         pdf.set_font("Arial", "B", 11)
-        pdf.set_fill_color(27, 69, 180) 
+        pdf.set_fill_color(38, 77, 33) 
         pdf.set_text_color(255, 255, 255)
         pdf.cell(190, 8, f" {dia}", 1, 1, 'L', True)
         
@@ -78,108 +80,82 @@ def generar_pdf(df_final, total_pax, re_total, resumen_menu, censo_dict):
         pdf.set_text_color(0, 0, 0)
         for m, platos in momentos_dict.items():
             if platos:
+                # Limpiamos el texto de caracteres que no sean latin-1 (como el emoji de la siringa o scout)
                 txt_platos = ", ".join(platos).encode('latin-1', 'replace').decode('latin-1')
-                pdf.multi_cell(190, 6, f"{m}: {txt_platos}", border=1)
+                pdf.set_font("Arial", "B", 9)
+                pdf.cell(40, 6, f" {m}:", border="LTB", ln=0)
+                pdf.set_font("Arial", "", 9)
+                pdf.multi_cell(150, 6, txt_platos, border="RTB")
         pdf.ln(2)
 
     # --- PÁGINA 2: COMPRA ---
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.set_text_color(27, 69, 180)
+    pdf.set_text_color(38, 77, 33)
     pdf.cell(200, 10, "LISTA DE LA COMPRA FINAL", ln=True, align="C")
     pdf.ln(5)
     
     pdf.set_font("Arial", "", 12)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(200, 10, f"Personas Totales: {total_pax}", ln=True)
+    pdf.cell(200, 10, f"Objetivo de Peso: {pesoDeseado} Kg", ln=True)
     pdf.ln(5)
     
-    # Cabecera: solo 2 columnas para que quepa bien el texto formateado
-    pdf.set_fill_color(27, 69, 180) 
+    pdf.set_fill_color(38, 77, 33) 
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Arial", "B", 11)
     pdf.cell(100, 10, " Ingrediente", 1, 0, 'L', True)
-    pdf.cell(80, 10, " Cantidad Total", 1, 1, 'L', True)
+    pdf.cell(90, 10, " Cantidad Total", 1, 1, 'L', True)
 
     pdf.set_text_color(0, 0, 0)
-    factores = {"Cas": 0.70, "Lob": 0.85, "Exp": 1.0, "Pio": 1.25, "Rut": 1.35, "Mon": 1.40}
-    nombres_ramas = {"Cas": "Castores", "Lob": "Lobatos", "Exp": "Exploradores", "Pio": "Pioneros", "Rut": "Rutas", "Mon": "Kraal"}
-
-    for _, fila in df_final.iterrows():
-        pdf.set_font("Arial", "B", 10)
-        pdf.set_fill_color(240, 240, 240)
-        
+    pdf.set_font("Arial", "", 10)
+    
+    for _, fila in df_compra.iterrows():
         ing = str(fila['Ingrediente']).encode('latin-1', 'replace').decode('latin-1')
-        # USAMOS 'Compra Final' que ya tiene el redondeo y los 2 decimales
-        compra_txt = str(fila['Compra Final']).encode('latin-1', 'replace').decode('latin-1')
-        
-        pdf.cell(100, 10, f" {ing}", 1, 0, 'L', True)
-        pdf.cell(80, 10, f" {compra_txt}", 1, 1, 'L', True)
-        
-        # Desglose por ramas
-        pdf.set_font("Arial", "I", 8)
-        pdf.set_text_color(100, 100, 100)
-        
-        cant_total_num = fila['Cantidad_Base']
-        racion_base = cant_total_num / re_total if re_total > 0 else 0
+        cant = str(fila['Cantidad'])
         uni = str(fila['Unidad']).encode('latin-1', 'replace').decode('latin-1')
-
-        desglose_txt = ""
-        for cod, num in censo_dict.items():
-            if num > 0:
-                cant_rama = (racion_base * factores[cod]) * num
-                # Aquí forzamos 2 decimales en el desglose
-                desglose_txt += f"{nombres_ramas[cod]}: {cant_rama:.2f} {uni} | "
         
-        pdf.multi_cell(180, 5, desglose_txt, border='LRB')
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(1)
+        pdf.cell(100, 10, f" {ing}", 1, 0, 'L')
+        pdf.cell(90, 10, f" {cant} {uni}", 1, 1, 'L')
 
-    return pdf.output(dest='S').encode('latin-1')
+    pdf_output = pdf.output()
+    
+    # Si la salida es un string (versiones antiguas), lo pasamos a bytes
+    if isinstance(pdf_output, str):
+        return bytes(pdf_output, 'latin-1')
+    
+    # Si ya son bytes o bytearray, nos aseguramos de devolver el tipo 'bytes'
+    return bytes(pdf_output)
 
-
+# --- LÓGICA DE DATOS ---
 df_recetas = cargar_datos(URL_ING)
 df_plantillas = cargar_datos(URL_PLAN)
 DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 momentos = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
 
 with st.sidebar:
-    
     st.header("👥 Peso y Dias")
-    # Lo hacemos que por defecto haga 1 semana, ya que suelen ser semanales
     f_ini = st.date_input("Fecha inicio", datetime.date.today())
     f_fin = st.date_input("Fecha fin", datetime.date.today() + datetime.timedelta(days=6))
     st.divider()
-    # Pedimo el peso inicial y final
     peso = st.number_input("Peso Actual (Kg)", 0, 500, 0)
     pesoDeseado = st.number_input("Peso Deseado (Kg)", 0, 500, 0)
 
-    # Si quieren adelgazar o engordar
-    if peso > pesoDeseado :
-        diferenciaPeso = peso - pesoDeseado
-        # Estructura de st.metric(label, value, delta=None, ...)
-        st.metric(
-        label="Peso a perder", 
-        value=f"{diferenciaPeso} Kg",
-        help="Este es el cálculo basado en tu peso actual y tu objetivo ideal."
-        )
-    else:
-        diferenciaPeso = pesoDeseado - peso 
-        st.metric(
-        label="Peso a perder", 
-        value=f"{diferenciaPeso} Kg",
-        help="Este es el cálculo basado en tu peso actual y tu objetivo ideal."
-        )
-    
-    
+    diferenciaPeso = abs(peso - pesoDeseado)
+    label_metric = "Peso a perder" if peso > pesoDeseado else "Peso a ganar"
+    st.metric(label=label_metric, value=f"{diferenciaPeso} Kg")
 
 st.title("Dietas Carla Natura")
 
 if not df_recetas.empty:
-    c_plat, c_ing, c_gram, c_uni = df_recetas.columns[0], df_recetas.columns[1], df_recetas.columns[2], df_recetas.columns[3]
+    c_plat = df_recetas.columns[0]
+    c_ing = df_recetas.columns[1]
+    c_gram = df_recetas.columns[2]
+    c_uni = df_recetas.columns[3]
+    c_kc = df_recetas.columns[5]
+    c_obj = df_recetas.columns[6]
 
     if not df_plantillas.empty:
-        with st.expander("📂 Cargar Dieta desde Plantilla"):
+        with st.expander("📂 Cargar Dietas desde Plantilla"):
             nombres_p = ["Ninguna"] + list(df_plantillas["Nombre_Plantilla"].unique())
             plantilla_sel = st.selectbox("Selecciona plantilla:", nombres_p)
             if st.button("Aplicar"):
@@ -204,87 +180,64 @@ if not df_recetas.empty:
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    # --- VALIDACIÓN Y CÁLCULO ---
     if st.button("📦 PREPARAR LISTA DE COMPRA"):
-        # Comprobar si hay niños introducidos
-        if total_pax <= 0:
-            st.error("⚠️ Error: Debes introducir el número de personas en la barra lateral.")
+        if pesoDeseado <= 0 or peso <= 0:
+            st.error("⚠️ Error: Introduce pesos válidos.")
         else:
-            acumulado = []
-            resumen_menu = {}
+            acumulado_ingredientes = []
+            resumen_dieta_kcal = {}
             platos_seleccionados_total = 0
 
             for i in range(num_dias):
                 fecha_loop = f_ini + datetime.timedelta(days=i)
                 tag_dia = f"{DIAS_SEMANA[fecha_loop.weekday()]} {fecha_loop.strftime('%d/%m')}"
-                resumen_menu[tag_dia] = {}
+                resumen_dieta_kcal[tag_dia] = {}
+
                 for m in momentos:
                     seleccionados = st.session_state.get(f"sel_{fecha_loop}_{m}", [])
-                    resumen_menu[tag_dia][m] = seleccionados
                     platos_seleccionados_total += len(seleccionados)
+                    platos_con_kcal = []
+                    
                     for plato in seleccionados:
                         ingreds = df_recetas[df_recetas[c_plat] == plato]
+                        kcal_acumulada_plato = 0
                         for _, row in ingreds.iterrows():
-                            try: val = float(str(row[c_gram]).replace(',', '.').strip())
-                            except: val = 0.0
-                            acumulado.append({"Ingrediente": row[c_ing], "Cantidad_Base": val * re_total, "Unidad": row[c_uni]})
+                            try: 
+                                g_p = float(str(row[c_gram]).replace(',', '.').strip())
+                                kc_100 = float(str(row[c_kc]).replace(',', '.').strip())
+                                if str(row[c_uni]).lower() in ['g', 'ml']:
+                                    kcal_ingrediente = (g_p * kc_100) / 100
+                                else:
+                                    kcal_ingrediente = g_p * kc_100
+                            except: kcal_ingrediente = 0
+                            
+                            kcal_acumulada_plato += kcal_ingrediente
+                            acumulado_ingredientes.append({"Ingrediente": row[c_ing], "Cantidad": g_p, "Unidad": row[c_uni]})
+                        
+                        platos_con_kcal.append(f"{plato} ({int(kcal_acumulada_plato)} Kcal)")
+                    resumen_dieta_kcal[tag_dia][m] = platos_con_kcal
             
-            # Comprobar si hay alimentos seleccionados
             if platos_seleccionados_total == 0:
-                st.error("⚠️ Error: No has seleccionado ningún plato en el calendario.")
-            elif acumulado:
-                df_calculado = pd.DataFrame(acumulado).groupby(['Ingrediente', 'Unidad'])['Cantidad_Base'].sum().reset_index()
-                df_calculado = df_calculado[['Ingrediente', 'Cantidad_Base', 'Unidad']]
-                st.session_state["df_compra"] = df_calculado
-                st.session_state["resumen_menu"] = resumen_menu
-                st.success("✅ Lista generada con éxito. Revisa y ajusta las cantidades abajo.")
+                st.error("⚠️ Error: No has seleccionado ningún plato.")
+            else:
+                df_compra = pd.DataFrame(acumulado_ingredientes)
+                df_final = df_compra.groupby(['Ingrediente', 'Unidad'])['Cantidad'].sum().reset_index()
+                df_final = df_final[['Ingrediente', 'Cantidad', 'Unidad']]
+                df_final['Cantidad'] = df_final['Cantidad'].round(2)
+                
+                st.session_state["df_compra"] = df_final
+                st.session_state["resumen_menu"] = resumen_dieta_kcal
+                
+                # GENERAR PDF Y GUARDAR
+                st.session_state["pdf_data"] = generar_pdf(pesoDeseado, resumen_dieta_kcal, df_final)
+                st.success("✅ Dieta calculada con éxito.")
 
-    if "df_compra" in st.session_state:
-        st.info("💡 Puedes hacer doble clic en las cantidades para ajustarlas manualmente si lo necesitas.")
-        df_editado = st.data_editor(
-            st.session_state["df_compra"],
-            column_config={
-                "Cantidad_Base": st.column_config.NumberColumn("Cantidad (Editar aquí)", format="%.2f"),
-                "Ingrediente": st.column_config.Column(disabled=True),
-                "Unidad": st.column_config.Column(disabled=True)
-            },
-            hide_index=True,
-            use_container_width=True
+    if "pdf_data" in st.session_state:
+        st.subheader("📋 Tu Plan Nutricional")
+        st.dataframe(st.session_state["df_compra"], use_container_width=True)
+        st.download_button(
+            label="📥 Descarga tu dieta adaptada (PDF)",
+            data=st.session_state["pdf_data"],
+            file_name=f"dieta_CarlaNatura_{datetime.date.today()}.pdf",
+            mime="application/pdf"
         )
-
-        def fmt(v, u):
-            # Redondeamos SIEMPRE hacia arriba
-            v_redondeado = math.ceil(v) 
-            
-            u_str = str(u).lower()
-            if 'uds' in u_str: 
-                return f"{v_redondeado} uds"
-            
-            # Si son gramos/ml y pasan de 1000, convertimos a kg/l con 2 decimales
-            if v >= 1000:
-                return f"{v/1000:.2f} kg/l" 
-            
-            return f"{v_redondeado} {u}"
-        
-        df_editado['Compra Final'] = df_editado.apply(lambda x: fmt(x['Cantidad_Base'], x['Unidad']), axis=1)
-
-       # Creamos el diccionario con los datos del censo (nombres que usaste en el sidebar)
-        censo_para_pdf = {
-            "Cas": cas, 
-            "Lob": lob, 
-            "Exp": exp, 
-            "Pio": pio, 
-            "Rut": rut, 
-            "Mon": mon
-        }
-
-        # Llamamos a la función pasando los 5 argumentos en orden
-        pdf_data = generar_pdf(
-            df_editado, 
-            total_pax, 
-            re_total, 
-            st.session_state["resumen_menu"], 
-            censo_para_pdf
-        )
-        
-        st.download_button("📥 Descargar Informe Final Ajustado (PDF)", pdf_data, f"compra_GSBV_{datetime.date.today()}.pdf")
