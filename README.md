@@ -33,13 +33,6 @@ Es aconsejable usar un entorno virtual para evitar conflictos entre librerías:
 python -m venv venv
 ```
 
-### 2. Crear un entorno virtual (Recomendado)
-Es aconsejable usar un entorno virtual para evitar conflictos entre librerías:
-
-```bash
-python -m venv venv
-```
-
 **Activar el entorno:**
 
 * ** Windows: 
