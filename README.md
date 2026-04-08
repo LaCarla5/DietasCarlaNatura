@@ -1,71 +1,82 @@
-# 🌿 Carla Natura: Gestión de Dietas Inteligentes
+🌿 Carla Natura: Gestión de Dietas Inteligentes
+Carla Natura es una aplicación web interactiva desarrollada con Streamlit diseñada para nutricionistas y profesionales de la salud. Permite planificar dietas semanales, calcular automáticamente el aporte calórico de cada plato y generar una lista de la compra detallada con el impacto energético de cada ingrediente.
 
-Carla Natura es una aplicación web interactiva desarrollada con **Streamlit** diseñada para nutricionistas y profesionales de la salud. Permite planificar dietas semanales, calcular automáticamente el aporte calórico de cada plato y generar una lista de la compra detallada con el impacto energético de cada ingrediente.
+✨ Características Principales
+📅 Planificador Semanal: Selecciona platos para cada momento del día (Desayuno, Almuerzo, Comida, Merienda y Cena).
 
-## ✨ Características Principales
+📊 Cálculo Nutricional Automático: Calcula las Kcal totales de cada plato basándose en una base de datos externa (Google Sheets).
 
-- **📅 Planificador Semanal:** Selecciona platos para cada momento del día (Desayuno, Almuerzo, Comida, Merienda y Cena).
-- **📊 Cálculo Nutricional Automático:** Calcula las Kcal totales de cada plato basándose en una base de datos externa (Google Sheets).
-- **🛒 Lista de Compra Inteligente:** Agrupa ingredientes y muestra la cantidad total necesaria junto con el aporte energético acumulado.
-- **📥 Generación de Informes PDF:** Exporta un documento profesional con el menú semanal y el detalle de la compra para el paciente.
-- **⚖️ Control de Objetivos:** Seguimiento visual de la meta de peso (ganar o perder).
+🛒 Lista de Compra Inteligente: Agrupa ingredientes y muestra la cantidad total necesaria junto con el aporte energético acumulado.
 
-## 🚀 Instalación y Configuración
+📥 Generación de Informes PDF: Exporta un documento profesional con el menú semanal y el detalle de la compra para el paciente.
 
-### 1. Clonar el repositorio
-```bash
-git clone [https://github.com/tu-usuario/carla-natura.git](https://github.com/tu-usuario/carla-natura.git)
+⚖️ Control de Objetivos: Seguimiento visual de la meta de peso (ganar o perder).
+
+🚀 Instalación y Configuración
+1. Clonar el repositorio
+Para obtener una copia local del proyecto, ejecuta:
+
+Bash
+git clone https://github.com/tu-usuario/carla-natura.git
 cd carla-natura
+2. Crear un entorno virtual (Recomendado)
+Es aconsejable usar un entorno virtual para mantener las dependencias aisladas:
 
-### 2. Crear un entorno virtual (Recomendado)
-```bash
+Bash
 python -m venv venv
-# En Windows:
+Para activarlo:
+
+En Windows:
+
+Bash
 venv\Scripts\activate
-# En Mac/Linux:
+En Mac/Linux:
+
+Bash
 source venv/bin/activate
+3. Instalar dependencias
+Instala todas las librerías necesarias mediante el archivo requirements.txt:
 
-### 3. Instalar dependencias
-#### Utiliza el archivo requirements.txt incluido en el proyecto:
+Bash
 pip install -r requirements.txt
+🛠️ Requisitos Técnicos
+El archivo requirements.txt incluye las siguientes librerías fundamentales:
 
-### 🛠️ Requisitos Técnicos
-El archivo requirements.txt debe contener al menos las siguientes librerías:
+Streamlit: Para la interfaz de usuario web.
 
-streamlit: Para la interfaz de usuario.
+Pandas: Para la gestión y cálculo de las tablas nutricionales.
 
-pandas: Para el procesamiento de datos.
+fpdf2: Para la generación de los informes PDF profesionales.
 
-fpdf2: Para la generación de documentos PDF.
+📊 Estructura de Datos (Excel/Google Sheets)
+Para que la aplicación funcione correctamente, la hoja de cálculo vinculada debe respetar el siguiente orden de columnas:
 
-### 📊 Estructura de Datos (Excel/Google Sheets)
-Para que la aplicación funcione, la hoja de cálculo vinculada debe tener las siguientes columnas en el orden especificado:
+Plato: Nombre de la receta.
 
-Plato: Nombre del plato.
+Ingrediente: Nombre del componente.
 
-Ingrediente: Nombre del ingrediente.
+Gramos_Persona: Cantidad asignada por ración.
 
-Gramos_Persona: Cantidad base.
+Unidad: Medida (g, ml, ud).
 
-Unidad: (g, ml, ud).
+Categoría: Clasificación del plato.
 
-Categoría: (Opcional).
-
-KiloCalorias: Valor energético por cada 100g/ml o por unidad.
+KiloCalorias: Valor energético (por cada 100g/ml o por unidad).
 
 🖥️ Uso de la Aplicación
-Para lanzar la aplicación localmente, ejecuta:
+Para lanzar la aplicación en tu navegador local, ejecuta:
 
 Bash
 streamlit run streamlit_app.py
-Configura el perfil del usuario (peso actual y objetivo) en la barra lateral.
+Pasos para generar una dieta:
+Configura el perfil: Introduce el peso actual y objetivo en la barra lateral.
 
-Selecciona las fechas del plan nutricional.
+Define el periodo: Selecciona la fecha de inicio y fin del plan nutricional.
 
-Elige los platos en el calendario central.
+Planifica el menú: Elige los platos deseados en los selectores del calendario.
 
-Haz clic en "Generar Informe Nutricional".
+Calcula: Haz clic en el botón "Generar Informe Nutricional".
 
-Revisa la tabla de compra y descarga el PDF profesional.
+Exporta: Revisa la tabla de compra en pantalla y descarga el PDF profesional.
 
 Generado con ❤️ para Carla Natura.
