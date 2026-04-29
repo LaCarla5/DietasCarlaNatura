@@ -1,8 +1,13 @@
+# Usar StreamLit
 import streamlit as st
 import pandas as pd
+# Generar PDFs
 from fpdf import FPDF
+# Para la fecha y hora
 import datetime
 from io import BytesIO
+# Generar graficos
+import plotly.express as px
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Dietas Carla Natura", layout="wide", page_icon="🥗")
@@ -59,7 +64,15 @@ st.markdown("""
         justify-content: center;
         text-align: center;
     }
-    
+
+    span[data-baseweb="tag"] {
+        background-color: #264d21 !important;
+    }
+
+    div[data-baseweb="select"] {
+        border-color: #264d21 !important;
+    }
+
     .mensaje-bloqueo {
         background: white;
         padding: 3rem;
@@ -84,6 +97,71 @@ def cargar_datos(url):
         return df.dropna(how='all')
     except:
         return pd.DataFrame()
+def generar_pdf_planificacion(resumen_menu, df_compra):
+    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # 1. Preparar datos base
+    dias_totales = list(resumen_menu.keys())
+    momentos_lista = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
+    platos_unicos = set()
+
+    # --- BUCLE PARA GENERAR TABLAS (Cada 7 días) ---
+    for i in range(0, len(dias_totales), 7):
+        pdf.add_page() 
+        dias_grupo = dias_totales[i : i + 7] 
+        
+        pdf.set_font("Arial", "B", 16)
+        pdf.set_text_color(27, 69, 180) 
+        pdf.cell(w=0, h=10, txt=f"Tabla de Dieta - CarlaNatura (Parte {int(i/7) + 1})", border=0, ln=1, align="C")
+        pdf.ln(5)
+
+        ancho_momento = 30
+        ancho_dia = (277 - ancho_momento) / len(dias_grupo)
+
+        # Cabecera
+        pdf.set_font("Arial", "B", 10)
+        pdf.set_fill_color(27, 69, 180)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(ancho_momento, 10, "Momento", 1, 0, 'C', True)
+        for dia in dias_grupo:
+            pdf.cell(ancho_dia, 10, dia, 1, 0, 'C', True)
+        pdf.ln()
+
+        # Filas de Momentos
+        pdf.set_text_color(0, 0, 0)
+        for m in momentos_lista:
+            altura_fila = 28 
+            y_inicio_fila = pdf.get_y()
+            
+            pdf.set_font("Arial", "B", 9)
+            pdf.set_fill_color(240, 240, 240)
+            pdf.cell(ancho_momento, altura_fila, m, 1, 0, 'C', True)
+            
+            for dia in dias_grupo:
+                platos = resumen_menu[dia].get(m, [])
+                for p in platos: platos_unicos.add(p)
+                
+                txt_platos = "\n".join(platos)
+                x, y = pdf.get_x(), pdf.get_y()
+                pdf.rect(x, y, ancho_dia, altura_fila)
+                
+                pdf.set_font("Arial", "B", 10)
+                num_lineas = len(platos) if platos else 1
+                altura_texto = num_lineas * 5 
+                offset_v = (altura_fila - altura_texto) / 2
+                
+                pdf.set_xy(x, y_inicio_fila + max(0, offset_v))
+                pdf.multi_cell(ancho_dia, 5, txt_platos.encode('latin-1', 'replace').decode('latin-1'), border=0, align='C')
+                
+                pdf.set_font("Arial", "", 8) 
+                pdf.set_xy(x + ancho_dia, y_inicio_fila)
+
+            # ESTA LÍNEA debe estar alineada con el 'for dia' (fuera de él)
+            pdf.set_y(y_inicio_fila + altura_fila)
+
+    # EL RETURN debe estar al final de toda la función
+    return pdf.output(dest='S').encode('latin-1')
 
 def generar_pdf(pesoDeseado, resumen_menu, df_compra):
     pdf = FPDF()
@@ -231,6 +309,7 @@ if not df_recetas.empty:
                             kc_item = (g * kc100 / 100) if str(row[c_uni]).lower() in ['g', 'ml'] else (g * kc100)
                             kcal_plato += kc_item
                             acumulado.append({
+                                "Plato": plato,
                                 "Ingrediente": row[c_ing], 
                                 "Cantidad": g, 
                                 "Unidad": row[c_uni],
@@ -248,17 +327,77 @@ if not df_recetas.empty:
             
             st.session_state["df_final"] = df_compra
             st.session_state["resumen_kcal"] = resumen_kcal
-            st.session_state["pdf_bytes"] = generar_pdf(pesoDeseado, resumen_kcal, df_compra)
+            st.session_state["generar_pdf"] = generar_pdf(pesoDeseado, resumen_kcal, df_compra)
+            st.session_state["pdf_planificacion"] = generar_pdf_planificacion(resumen_kcal, df_compra)
             st.success("✅ ¡Informe listo!")
 
     if "df_final" in st.session_state:
         st.divider()
-        st.subheader("🛒 Carrito de la Compra Nutricional")
-        st.dataframe(st.session_state["df_final"].style.format({"Cantidad": "{:.2f}", "Kcal_Totales": "{:.0f}"}), use_container_width=True)
+        st.subheader("🛒 Carrito de la Compra y Análisis Visual")
         
-        st.download_button(
-            label="📥 Descargar Dieta PDF Profesional",
-            data=st.session_state["pdf_bytes"],
-            file_name=f"Dieta_CarlaNatura_{datetime.date.today()}.pdf",
-            mime="application/pdf"
-        )
+        # Recuperamos el DataFrame original (sin agrupar todavía por ingrediente solo)
+        df_compra_con_platos = pd.DataFrame(acumulado) # 'acumulado' viene de la lógica del botón arriba
+
+        # Creamos dos pestañas para organizar la vista
+        tab1, tab2 = st.tabs(["📊 Gráficos Interactivos", "📋 Lista de Compra Detallada"])
+
+        with tab1:
+            st.markdown("### Desglose de Calorías por Plato e Ingrediente")
+            
+            # --- NUEVO GRÁFICO 1: Barras Apiladas (Stacked Bar Chart) ---
+            # Este gráfico muestra qué plato es más calórico y qué ingredientes lo componen
+            fig_bar_stacked = px.bar(
+                df_compra_con_platos, 
+                x='Kcal_Totales', 
+                y='Plato', 
+                color='Ingrediente', # El color divide la barra por ingrediente
+                orientation='h',
+                title="Calorías Totales por Plato (Desglosado por Ingrediente)",
+                labels={'Kcal_Totales': 'Calorías', 'Plato': 'Plato Seleccionado'},
+                hover_data={'Cantidad': True, 'Unidad': True, 'Kcal_Totales': ':.1f'} # Datos al pasar el ratón
+            )
+            # Ordenar las barras para que el plato más calórico esté arriba
+            fig_bar_stacked.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False)
+            st.plotly_chart(fig_bar_stacked, use_container_width=True)
+
+
+            # --- NUEVO GRÁFICO 2: Gráfico de Sol (Sunburst Chart) ---
+            # Este gráfico es perfecto para ver jerarquías: Plato -> Ingrediente
+            st.markdown("---")
+            st.markdown("### Jerarquía de Consumo: De Plato a Ingrediente")
+            
+            fig_sunburst = px.sunburst(
+                df_compra_con_platos,
+                path=['Plato', 'Ingrediente'], # Define la jerarquía
+                values='Kcal_Totales',
+                title="Distribución Jerárquica de Calorías",
+                color='Kcal_Totales', # Color según calorías para destacar lo pesado
+                color_continuous_scale='RdYlGn_r', # Rojo (alto) a Verde (bajo), invertido
+                hover_data={'Kcal_Totales': ':.1f Kcal'}
+            )
+            fig_sunburst.update_traces(textinfo="label+percent entry")
+            st.plotly_chart(fig_sunburst, use_container_width=True)
+
+        with tab2:
+            # Mostramos la tabla de compra agrupada solo por ingrediente (como antes)
+            st.subheader("Lista de la Compra Consolidada")
+            df_compra_agrupada = df_compra_con_platos.groupby(['Ingrediente', 'Unidad']).agg({
+                'Cantidad': 'sum',
+                'Kcal_Totales': 'sum'
+            }).reset_index()
+            
+            st.dataframe(df_compra_agrupada.style.format({"Cantidad": "{:.2f}", "Kcal_Totales": "{:.0f}"}), use_container_width=True)
+            
+            # Botón de descarga PDF
+            st.download_button(
+                label="🛒 Lista de la compra",
+                data=st.session_state["generar_pdf"],
+                file_name=f"Dieta_CarlaNatura_{datetime.date.today()}.pdf",
+                mime="application/pdf"
+            )
+            st.download_button(
+                label="📥 Descargar Dieta Semanal",
+                data=st.session_state["pdf_planificacion"],
+                file_name=f"Dieta_CarlaNatura_{datetime.date.today()}.pdf",
+                mime="application/pdf"
+            )
