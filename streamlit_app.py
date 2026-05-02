@@ -97,7 +97,7 @@ def cargar_datos(url):
         return df.dropna(how='all')
     except:
         return pd.DataFrame()
-def generar_pdf_planificacion(resumen_menu, df_compra):
+def generar_pdf_planificacion(resumen_menu):
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
     
@@ -161,9 +161,9 @@ def generar_pdf_planificacion(resumen_menu, df_compra):
             pdf.set_y(y_inicio_fila + altura_fila)
 
     # EL RETURN debe estar al final de toda la función
-    return pdf.output(dest='S').encode('latin-1')
+    return pdf.output(dest='S')
 
-def generar_pdf(pesoDeseado, resumen_menu, df_compra):
+def generar_pdf(resumen_menu, df_compra):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -327,8 +327,8 @@ if not df_recetas.empty:
             
             st.session_state["df_final"] = df_compra
             st.session_state["resumen_kcal"] = resumen_kcal
-            st.session_state["generar_pdf"] = generar_pdf(pesoDeseado, resumen_kcal, df_compra)
-            st.session_state["pdf_planificacion"] = generar_pdf_planificacion(resumen_kcal, df_compra)
+            st.session_state["generar_pdf"] = generar_pdf(resumen_kcal, df_compra)
+            st.session_state["pdf_planificacion"] = generar_pdf_planificacion(resumen_kcal)
             st.success("✅ ¡Informe listo!")
 
     if "df_final" in st.session_state:
@@ -397,7 +397,7 @@ if not df_recetas.empty:
             )
             st.download_button(
                 label="📥 Descargar Dieta Semanal",
-                data=st.session_state["pdf_planificacion"],
+                data=st.session_state["planificacion_pdf"], 
                 file_name=f"Dieta_CarlaNatura_{datetime.date.today()}.pdf",
                 mime="application/pdf"
             )
