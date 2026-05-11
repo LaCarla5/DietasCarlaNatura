@@ -11,7 +11,11 @@ import plotly.express as px
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Dietas Carla Natura", layout="wide", page_icon="🥗")
+if "planificacion_pdf" not in st.session_state:
+    st.session_state["planificacion_pdf"] = None
 
+if "pdf_bytes" not in st.session_state:
+    st.session_state["pdf_bytes"] = None
 st.markdown("""
 <style>
     .stButton>button { 
@@ -315,27 +319,43 @@ if not df_recetas.empty:
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
+    # --- 1. BOTÓN DE GENERAR ---
     if st.button("📊 GENERAR INFORME NUTRICIONAL"):
         acumulado = []
         resumen_kcal = {}
 
+        # 1. Recorremos los días seleccionados
         for i in range(num_dias):
             fecha_loop = f_ini + datetime.timedelta(days=i)
             tag = f"{DIAS_SEMANA[fecha_loop.weekday()]} {fecha_loop.strftime('%d/%m')}"
             resumen_kcal[tag] = {}
             
+            # 2. Recorremos los momentos (Desayuno, Comida...)
             for m in momentos:
-                seleccionados = st.session_state.get(f"sel_{fecha_loop}_{m}", [])
+                key = f"sel_{fecha_loop}_{m}"
+                seleccionados = st.session_state.get(key, [])
                 platos_formateados = []
+                
                 for plato in seleccionados:
+                    # Buscamos los ingredientes de ese plato en el Excel
                     ingreds = df_recetas[df_recetas[c_plat] == plato]
                     kcal_plato = 0
+                    
                     for _, row in ingreds.iterrows():
                         try:
+                            # Limpieza de números (por si vienen con coma del Excel)
                             g = float(str(row[c_gram]).replace(',', '.'))
                             kc100 = float(str(row[c_kc]).replace(',', '.'))
-                            kc_item = (g * kc100 / 100) if str(row[c_uni]).lower() in ['g', 'ml'] else (g * kc100)
+                            
+                            # Lógica de cálculo: si es g/ml dividimos por 100, si es 'unidad' multiplicamos directo
+                            if str(row[c_uni]).lower() in ['g', 'ml']:
+                                kc_item = (g * kc100 / 100)
+                            else:
+                                kc_item = (g * kc100)
+                                
                             kcal_plato += kc_item
+                            
+                            # Guardamos en la lista para la compra y los gráficos
                             acumulado.append({
                                 "Plato": plato,
                                 "Ingrediente": row[c_ing], 
@@ -343,88 +363,91 @@ if not df_recetas.empty:
                                 "Unidad": row[c_uni],
                                 "Kcal_Totales": kc_item
                             })
-                        except: pass
+                        except:
+                            continue
+                    
                     platos_formateados.append(f"{plato} ({int(kcal_plato)} Kcal)")
+                
                 resumen_kcal[tag][m] = platos_formateados
 
+        # 3. Solo si hay datos, generamos los resultados
         if acumulado:
-            # GUARDAR EN SESSION STATE
+            # Agrupamos para la tabla de compra consolidada
+            df_compra = pd.DataFrame(acumulado).groupby(['Ingrediente', 'Unidad']).agg({
+                'Cantidad': 'sum', 
+                'Kcal_Totales': 'sum'
+            }).reset_index()
+            
+            # --- GUARDAMOS TODO EN EL ESTADO (VITAL PARA QUE NO SE PIERDA) ---
+            st.session_state["df_final"] = df_compra
             st.session_state["acumulado"] = acumulado
             st.session_state["resumen_kcal"] = resumen_kcal
             
-            # Agrupamos para el PDF y tabla simple
-            df_compra = pd.DataFrame(acumulado).groupby(['Ingrediente', 'Unidad']).agg({
-                'Cantidad': 'sum', 'Kcal_Totales': 'sum'
-            }).reset_index()
-            
-            st.session_state["df_final"] = df_compra
+            # Generamos los PDFs usando las funciones que ya tienes arriba
             st.session_state["pdf_bytes"] = generar_pdf(resumen_kcal, df_compra)
-            st.session_state["pdf_planificacion"] = generar_pdf_planificacion(resumen_kcal)
-            st.success("✅ ¡Informe nutricional y PDFs generados!")
-            st.rerun() # Forzamos recarga para que aparezcan los resultados abajo
+            st.session_state["planificacion_pdf"] = generar_pdf_planificacion(resumen_kcal)
+            
+            st.success("✅ ¡Informe generado con éxito! Baja para ver los resultados.")
+            st.rerun() # Refresca la página para mostrar los gráficos
+        else:
+            st.warning("⚠️ No has seleccionado ningún plato en el calendario.")
 
-# --- 7. MOSTRAR RESULTADOS (Fuera del bloque 'if st.button') ---
-# Este 'if' es el escudo: si no hay datos generados, no intenta dibujar nada y no da error
+# --- 2. MOSTRAR RESULTADOS (Fuera del botón, al nivel principal) ---
+# Este IF es el "escudo": si no hay datos, no intenta leer nada y NO da KeyError
 if "df_final" in st.session_state and "acumulado" in st.session_state:
     st.divider()
     st.header("📊 Análisis de tu Dieta Personalizada")
     
-    # Recuperamos los datos para los gráficos
     df_compra_con_platos = pd.DataFrame(st.session_state["acumulado"])
     
-    # Creamos las pestañas
+    # Pestañas para que no se amontone la info
     tab1, tab2 = st.tabs(["📈 Gráficos de Energía", "📋 Lista de Compra"])
 
     with tab1:
         col_a, col_b = st.columns(2)
         with col_a:
-            st.markdown("### ¿Qué platos aportan más calorías?")
+            st.markdown("### Calorías por Plato e Ingrediente")
             fig_bar = px.bar(
                 df_compra_con_platos, 
                 x='Kcal_Totales', y='Plato', color='Ingrediente',
-                orientation='h', title="Calorías por Plato e Ingrediente",
+                orientation='h', title="Desglose Calórico",
                 color_discrete_sequence=px.colors.qualitative.Dark2
             )
             st.plotly_chart(fig_bar, use_container_width=True)
         
         with col_b:
-            st.markdown("### Distribución Calórica")
+            st.markdown("### Jerarquía de la Dieta")
             fig_sun = px.sunburst(
                 df_compra_con_platos, path=['Plato', 'Ingrediente'], values='Kcal_Totales',
-                color='Kcal_Totales', color_continuous_scale='Greens',
-                title="Jerarquía: Plato > Ingrediente"
+                color='Kcal_Totales', color_continuous_scale='Greens'
             )
             st.plotly_chart(fig_sun, use_container_width=True)
 
     with tab2:
         st.subheader("🛒 Carrito de la Compra Consolidado")
-        # Mostramos la tabla agrupada que guardamos en df_final
         st.dataframe(st.session_state["df_final"].style.format({"Cantidad": "{:.2f}", "Kcal_Totales": "{:.0f}"}), use_container_width=True)
         
         st.markdown("### 📥 Descargas Disponibles")
         c1, c2 = st.columns(2)
         
         with c1:
-            # BOTÓN 1: Lista de la Compra
+            # Verificamos que el PDF de la lista existe antes de crear el botón
             if "pdf_bytes" in st.session_state:
                 st.download_button(
                     label="🛒 Descargar Lista de la Compra",
                     data=st.session_state["pdf_bytes"],
                     file_name=f"Lista_Compra_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_descarga_lista"
+                    key="btn_compra_final"
                 )
         
         with c2:
-            # BOTÓN 2: Tabla Semanal (El que te daba el KeyError)
-            # IMPORTANTE: Verifica que arriba lo guardes como "pdf_planificacion"
-            if "pdf_planificacion" in st.session_state:
+            # AQUÍ ESTABA EL ERROR: Verificamos que la planificación existe
+            if "planificacion_pdf" in st.session_state:
                 st.download_button(
                     label="📅 Descargar Tabla Semanal",
-                    data=st.session_state["pdf_planificacion"], 
+                    data=st.session_state["planificacion_pdf"], 
                     file_name=f"Tabla_Semanal_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_descarga_tabla"
+                    key="btn_tabla_final"
                 )
-            else:
-                st.warning("⚠️ No se encontró el archivo de la tabla semanal.")
