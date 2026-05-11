@@ -395,68 +395,54 @@ if not df_recetas.empty:
         else:
             st.warning("⚠️ No has seleccionado ningún plato en el calendario.")
 
-# --- SECCIÓN DE RESULTADOS Y DESCARGAS ---
-# Extraemos todo con .get() para que NUNCA de KeyError
-datos_acumulado = st.session_state.get("acumulado", None)
-datos_lista_compra = st.session_state.get("pdf_bytes", None)
-datos_planificacion = st.session_state.get("planificacion_pdf", None)
-hay_datos_finales = st.session_state.get("df_final", None)
+# --- 7. MOSTRAR RESULTADOS ---
+# Usamos .get() para que si la llave no existe, devuelva None en lugar de dar error
+hay_datos = st.session_state.get("df_final")
+datos_grafico = st.session_state.get("acumulado")
+pdf_compra = st.session_state.get("pdf_bytes")
+# IMPORTANTE: Asegúrate de que arriba guardas el PDF con este nombre exacto
+pdf_tabla = st.session_state.get("planificacion_pdf") 
 
-# Solo entramos si realmente se ha pulsado el botón de generar
-if hay_datos_finales is not None and datos_acumulado is not None:
+if hay_datos is not None and datos_grafico is not None:
     st.divider()
     st.header("📊 Análisis de tu Dieta Personalizada")
     
-    # Creamos el DataFrame desde la variable segura que sacamos arriba
-    df_compra_con_platos = pd.DataFrame(datos_acumulado)
-    
-    # Pestañas para organizar la info
+    df_plot = pd.DataFrame(datos_grafico)
     tab1, tab2 = st.tabs(["📈 Gráficos de Energía", "📋 Lista de Compra"])
 
     with tab1:
         col_a, col_b = st.columns(2)
         with col_a:
-            st.markdown("### Calorías por Plato e Ingrediente")
-            fig_bar = px.bar(
-                df_compra_con_platos, 
-                x='Kcal_Totales', y='Plato', color='Ingrediente',
-                orientation='h', title="Desglose Calórico",
-                color_discrete_sequence=px.colors.qualitative.Dark2
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            fig_bar = px.bar(df_plot, x='Kcal_Totales', y='Plato', color='Ingrediente', orientation='h')
+            st.plotly_chart(fig_bar, theme="streamlit")
         
         with col_b:
-            st.markdown("### Jerarquía de la Dieta")
-            fig_sun = px.sunburst(
-                df_compra_con_platos, path=['Plato', 'Ingrediente'], values='Kcal_Totales',
-                color='Kcal_Totales', color_continuous_scale='Greens'
-            )
-            st.plotly_chart(fig_sun, use_container_width=True)
+            fig_sun = px.sunburst(df_plot, path=['Plato', 'Ingrediente'], values='Kcal_Totales', color_continuous_scale='Greens')
+            st.plotly_chart(fig_sun, theme="streamlit")
 
     with tab2:
         st.subheader("🛒 Carrito de la Compra Consolidado")
-        # Usamos la variable segura hay_datos_finales
-        st.dataframe(hay_datos_finales.style.format({"Cantidad": "{:.2f}", "Kcal_Totales": "{:.0f}"}), use_container_width=True)
+        st.dataframe(hay_datos, width="stretch")
         
         st.markdown("### 📥 Descargas Disponibles")
         c1, c2 = st.columns(2)
         
         with c1:
-            if datos_lista_compra:
+            if pdf_compra:
                 st.download_button(
-                    label="🛒 Descargar Lista de la Compra",
-                    data=datos_lista_compra,
-                    file_name=f"Lista_Compra_{datetime.date.today()}.pdf",
+                    label="📥 Descargar Plan Nutricional",
+                    data=pdf_compra,
+                    file_name=f"Plan_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_compra_seguro_v2"
+                    key="dl_plan"
                 )
         
         with c2:
-            if datos_planificacion:
+            if pdf_tabla:
                 st.download_button(
                     label="📅 Descargar Tabla Semanal",
-                    data=datos_planificacion, 
-                    file_name=f"Tabla_Semanal_{datetime.date.today()}.pdf",
+                    data=pdf_tabla, 
+                    file_name=f"Tabla_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_tabla_seguro_v2"
+                    key="dl_tabla"
                 )
