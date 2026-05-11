@@ -11,11 +11,14 @@ import plotly.express as px
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Dietas Carla Natura", layout="wide", page_icon="🥗")
+# Inicializar las llaves para evitar KeyError
 if "planificacion_pdf" not in st.session_state:
     st.session_state["planificacion_pdf"] = None
-
 if "pdf_bytes" not in st.session_state:
     st.session_state["pdf_bytes"] = None
+if "df_final" not in st.session_state:
+    st.session_state["df_final"] = None
+
 st.markdown("""
 <style>
     .stButton>button { 
@@ -392,15 +395,22 @@ if not df_recetas.empty:
         else:
             st.warning("⚠️ No has seleccionado ningún plato en el calendario.")
 
-# --- 2. MOSTRAR RESULTADOS (Fuera del botón, al nivel principal) ---
-# Este IF es el "escudo": si no hay datos, no intenta leer nada y NO da KeyError
-if "df_final" in st.session_state and "acumulado" in st.session_state:
+# --- SECCIÓN DE RESULTADOS Y DESCARGAS ---
+# Extraemos todo con .get() para que NUNCA de KeyError
+datos_acumulado = st.session_state.get("acumulado", None)
+datos_lista_compra = st.session_state.get("pdf_bytes", None)
+datos_planificacion = st.session_state.get("planificacion_pdf", None)
+hay_datos_finales = st.session_state.get("df_final", None)
+
+# Solo entramos si realmente se ha pulsado el botón de generar
+if hay_datos_finales is not None and datos_acumulado is not None:
     st.divider()
     st.header("📊 Análisis de tu Dieta Personalizada")
     
-    df_compra_con_platos = pd.DataFrame(st.session_state["acumulado"])
+    # Creamos el DataFrame desde la variable segura que sacamos arriba
+    df_compra_con_platos = pd.DataFrame(datos_acumulado)
     
-    # Pestañas para que no se amontone la info
+    # Pestañas para organizar la info
     tab1, tab2 = st.tabs(["📈 Gráficos de Energía", "📋 Lista de Compra"])
 
     with tab1:
@@ -425,29 +435,28 @@ if "df_final" in st.session_state and "acumulado" in st.session_state:
 
     with tab2:
         st.subheader("🛒 Carrito de la Compra Consolidado")
-        st.dataframe(st.session_state["df_final"].style.format({"Cantidad": "{:.2f}", "Kcal_Totales": "{:.0f}"}), use_container_width=True)
+        # Usamos la variable segura hay_datos_finales
+        st.dataframe(hay_datos_finales.style.format({"Cantidad": "{:.2f}", "Kcal_Totales": "{:.0f}"}), use_container_width=True)
         
         st.markdown("### 📥 Descargas Disponibles")
         c1, c2 = st.columns(2)
         
         with c1:
-            # Verificamos que el PDF de la lista existe antes de crear el botón
-            if "pdf_bytes" in st.session_state:
+            if datos_lista_compra:
                 st.download_button(
                     label="🛒 Descargar Lista de la Compra",
-                    data=st.session_state["pdf_bytes"],
+                    data=datos_lista_compra,
                     file_name=f"Lista_Compra_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_compra_final"
+                    key="btn_compra_seguro_v2"
                 )
         
         with c2:
-            # AQUÍ ESTABA EL ERROR: Verificamos que la planificación existe
-            if "planificacion_pdf" in st.session_state:
+            if datos_planificacion:
                 st.download_button(
                     label="📅 Descargar Tabla Semanal",
-                    data=st.session_state["planificacion_pdf"], 
+                    data=datos_planificacion, 
                     file_name=f"Tabla_Semanal_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_tabla_final"
+                    key="btn_tabla_seguro_v2"
                 )
