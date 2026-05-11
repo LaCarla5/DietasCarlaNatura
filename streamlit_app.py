@@ -363,16 +363,16 @@ if not df_recetas.empty:
             st.success("✅ ¡Informe nutricional y PDFs generados!")
             st.rerun() # Forzamos recarga para que aparezcan los resultados abajo
 
-# --- 7. MOSTRAR RESULTADOS (Fuera del botón, al nivel del 'if not df_recetas.empty') ---
-# Comprobamos que existan los datos para que no de error al cargar la página online
+# --- 7. MOSTRAR RESULTADOS (Fuera del bloque 'if st.button') ---
+# Este 'if' es el escudo: si no hay datos generados, no intenta dibujar nada y no da error
 if "df_final" in st.session_state and "acumulado" in st.session_state:
     st.divider()
     st.header("📊 Análisis de tu Dieta Personalizada")
     
-    # Recuperamos los datos de la sesión
+    # Recuperamos los datos para los gráficos
     df_compra_con_platos = pd.DataFrame(st.session_state["acumulado"])
     
-    # Pestañas para organizar
+    # Creamos las pestañas
     tab1, tab2 = st.tabs(["📈 Gráficos de Energía", "📋 Lista de Compra"])
 
     with tab1:
@@ -398,30 +398,33 @@ if "df_final" in st.session_state and "acumulado" in st.session_state:
 
     with tab2:
         st.subheader("🛒 Carrito de la Compra Consolidado")
+        # Mostramos la tabla agrupada que guardamos en df_final
         st.dataframe(st.session_state["df_final"].style.format({"Cantidad": "{:.2f}", "Kcal_Totales": "{:.0f}"}), use_container_width=True)
         
         st.markdown("### 📥 Descargas Disponibles")
         c1, c2 = st.columns(2)
         
         with c1:
-            # Lista de la compra / Plan Nutricional
+            # BOTÓN 1: Lista de la Compra
             if "pdf_bytes" in st.session_state:
                 st.download_button(
-                    label="📥 Descargar Plan Nutricional (PDF)",
+                    label="🛒 Descargar Lista de la Compra",
                     data=st.session_state["pdf_bytes"],
-                    file_name=f"Plan_CarlaNatura_{datetime.date.today()}.pdf",
+                    file_name=f"Lista_Compra_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_plan_final"
+                    key="btn_descarga_lista"
                 )
         
         with c2:
-            # Tabla semanal (La que se veía cortada antes)
-            # USAMOS EL NOMBRE CORRECTO: "pdf_planificacion"
+            # BOTÓN 2: Tabla Semanal (El que te daba el KeyError)
+            # IMPORTANTE: Verifica que arriba lo guardes como "pdf_planificacion"
             if "pdf_planificacion" in st.session_state:
                 st.download_button(
                     label="📅 Descargar Tabla Semanal",
                     data=st.session_state["pdf_planificacion"], 
                     file_name=f"Tabla_Semanal_{datetime.date.today()}.pdf",
                     mime="application/pdf",
-                    key="btn_tabla_final"
+                    key="btn_descarga_tabla"
                 )
+            else:
+                st.warning("⚠️ No se encontró el archivo de la tabla semanal.")
