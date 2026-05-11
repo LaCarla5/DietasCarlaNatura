@@ -364,11 +364,15 @@ if not df_recetas.empty:
             st.rerun() # Forzamos recarga para que aparezcan los resultados abajo
 
 # --- 7. MOSTRAR RESULTADOS (Fuera del botón, al nivel del 'if not df_recetas.empty') ---
+# Comprobamos que existan los datos para que no de error al cargar la página online
 if "df_final" in st.session_state and "acumulado" in st.session_state:
     st.divider()
     st.header("📊 Análisis de tu Dieta Personalizada")
     
+    # Recuperamos los datos de la sesión
     df_compra_con_platos = pd.DataFrame(st.session_state["acumulado"])
+    
+    # Pestañas para organizar
     tab1, tab2 = st.tabs(["📈 Gráficos de Energía", "📋 Lista de Compra"])
 
     with tab1:
@@ -398,15 +402,26 @@ if "df_final" in st.session_state and "acumulado" in st.session_state:
         
         st.markdown("### 📥 Descargas Disponibles")
         c1, c2 = st.columns(2)
+        
         with c1:
-            st.download_button(
-                "📥 Descargar Plan Nutricional (PDF)", 
-                st.session_state["pdf_bytes"], 
-                f"Plan_CarlaNatura_{datetime.date.today()}.pdf", "application/pdf"
-            )
+            # Lista de la compra / Plan Nutricional
+            if "pdf_bytes" in st.session_state:
+                st.download_button(
+                    label="📥 Descargar Plan Nutricional (PDF)",
+                    data=st.session_state["pdf_bytes"],
+                    file_name=f"Plan_CarlaNatura_{datetime.date.today()}.pdf",
+                    mime="application/pdf",
+                    key="btn_plan_final"
+                )
+        
         with c2:
-            st.download_button(
-                "📅 Descargar Tabla Semanal", 
-                st.session_state["pdf_planificacion"], 
-                f"Tabla_Semanal_{datetime.date.today()}.pdf", "application/pdf"
-            )
+            # Tabla semanal (La que se veía cortada antes)
+            # USAMOS EL NOMBRE CORRECTO: "pdf_planificacion"
+            if "pdf_planificacion" in st.session_state:
+                st.download_button(
+                    label="📅 Descargar Tabla Semanal",
+                    data=st.session_state["pdf_planificacion"], 
+                    file_name=f"Tabla_Semanal_{datetime.date.today()}.pdf",
+                    mime="application/pdf",
+                    key="btn_tabla_final"
+                )
