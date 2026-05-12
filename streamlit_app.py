@@ -37,53 +37,60 @@ def cargar_datos(url):
         return pd.DataFrame()
 
 def generar_pdf_unico(resumen_menu, df_compra):
+    verde_r, verde_g, verde_b = 38, 77, 33
+
     # Orientación Landscape (Horizontal) para la tabla del menú
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # --- PÁGINA 1: TABLA SEMANAL HORIZONTAL ---
-    pdf.add_page()
-    pdf.set_font("helvetica", "B", 16)
-    pdf.set_text_color(27, 69, 180)
-    pdf.cell(0, 10, "CALENDARIO NUTRICIONAL SEMANAL", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
-    pdf.ln(5)
-
-    dias_grupo = list(resumen_menu.keys())
+    dias_totales = list(resumen_menu.keys())
     momentos_lista = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
-    ancho_momento = 30
-    ancho_dia = (277 - ancho_momento) / len(dias_grupo)
 
-    # Cabecera de la tabla
-    pdf.set_font("helvetica", "B", 10)
-    pdf.set_fill_color(27, 69, 180)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(ancho_momento, 10, "Momento", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
-    for dia in dias_grupo:
-        pdf.cell(ancho_dia, 10, dia.split()[0], 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
-    pdf.ln()
+    # --- PÁGINA 1: TABLA SEMANAL HORIZONTAL ---
+    # controlar que casa semana cree otra hoja
+    for i in range(0, len(dias_totales), 7):
+        pdf.add_page()
+        pdf.set_font("helvetica", "B", 16)
+        pdf.set_text_color(verde_r, verde_g, verde_b)
+        pdf.cell(0, 10, "CALENDARIO NUTRICIONAL SEMANAL", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        pdf.ln(5)
 
-    # Filas de la tabla
-    pdf.set_text_color(0, 0, 0)
-    for m in momentos_lista:
-        y_inicio = pdf.get_y()
-        pdf.set_font("helvetica", "B", 9)
-        pdf.set_fill_color(240, 240, 240)
-        pdf.cell(ancho_momento, 25, m, 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
-        
-        pdf.set_font("helvetica", "", 8)
+        dias_grupo = list(resumen_menu.keys())
+        momentos_lista = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
+        ancho_momento = 30
+        ancho_dia = (277 - ancho_momento) / len(dias_grupo)
+
+        # Cabecera de la tabla
+        pdf.set_font("helvetica", "B", 10)
+        pdf.set_fill_color(verde_r, verde_g, verde_b)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(ancho_momento, 10, "Momento", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
         for dia in dias_grupo:
-            platos = resumen_menu[dia].get(m, [])
-            txt_platos = "\n".join(platos).encode('latin-1', 'replace').decode('latin-1')
-            x_act = pdf.get_x()
-            pdf.rect(x_act, y_inicio, ancho_dia, 25)
-            pdf.multi_cell(ancho_dia, 5, txt_platos, align='C')
-            pdf.set_xy(x_act + ancho_dia, y_inicio)
-        pdf.set_y(y_inicio + 25)
+            pdf.cell(ancho_dia, 10, dia.split()[0], 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+        pdf.ln()
+
+        # Filas de la tabla
+        pdf.set_text_color(0, 0, 0)
+        for m in momentos_lista:
+            y_inicio = pdf.get_y()
+            pdf.set_font("helvetica", "B", 9)
+            pdf.set_fill_color(240, 240, 240)
+            pdf.cell(ancho_momento, 25, m, 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+            
+            pdf.set_font("helvetica", "", 8)
+            for dia in dias_grupo:
+                platos = resumen_menu[dia].get(m, [])
+                txt_platos = "\n".join(platos).encode('latin-1', 'replace').decode('latin-1')
+                x_act = pdf.get_x()
+                pdf.rect(x_act, y_inicio, ancho_dia, 25)
+                pdf.multi_cell(ancho_dia, 5, txt_platos, align='C')
+                pdf.set_xy(x_act + ancho_dia, y_inicio)
+            pdf.set_y(y_inicio + 25)
 
     # --- PÁGINA 2: PLAN DETALLADO (Vertical) ---
     pdf.add_page(orientation='P') # Cambiamos a Vertical
     pdf.set_font("helvetica", "B", 16)
-    pdf.set_text_color(38, 77, 33)
+    pdf.set_text_color(verde_r, verde_g, verde_b)
     pdf.cell(0, 10, "DESGLOSE POR DÍAS", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(5)
 
@@ -104,12 +111,13 @@ def generar_pdf_unico(resumen_menu, df_compra):
         pdf.ln(3)
 
     # --- PÁGINA 3: LISTA DE LA COMPRA ---
-    pdf.add_page()
+    pdf.add_page(orientation='P')
     pdf.set_font("helvetica", "B", 16)
+    pdf.set_text_color(verde_r, verde_g, verde_b)
     pdf.cell(0, 10, "LISTA DE LA COMPRA", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(5)
     
-    pdf.set_fill_color(240, 240, 240)
+    pdf.set_fill_color(verde_r, verde_g, verde_b)
     pdf.set_font("helvetica", "B", 10)
     pdf.cell(110, 10, " Producto", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, fill=True)
     pdf.cell(40, 10, " Cantidad", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
