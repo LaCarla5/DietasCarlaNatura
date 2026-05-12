@@ -6,7 +6,8 @@ import datetime
 import plotly.express as px
 
 # --- 1. CONFIGURACIÓN Y ESTILOS ---
-st.set_page_config(page_title="Dietas Carla Natura", layout="wide", page_icon="🥗")
+st.set_page_config(page_title="Dietas Carla Natura",
+                   layout="wide", page_icon="🥗")
 
 # Inicialización de seguridad para evitar KeyError y errores de descarga
 if "df_final" not in st.session_state:
@@ -20,12 +21,29 @@ st.markdown("""
 <style>
     .stButton>button { background-color: #264d21; color: white; border-radius: 10px; font-weight: bold; }
     h1, h3 { color: #264d21; }
+            
+    /* Color de fondo de la etiqueta seleccionada (el tag) */
+    span[data-baseweb="tag"] {
+        background-color: #264d21 !important; /* El verde corporativo */
+        color: white !important; /* Color del texto dentro de la etiqueta */
+    }
+
+    /* Color del icono 'X' para borrar la selección */
+    span[data-baseweb="tag"] svg {
+        fill: white !important;
+    }
+
+    /* Color del borde del cuadro de selección cuando pasas el ratón o haces clic */
+    div[data-baseweb="select"] > div:focus-within {
+        border-color: #264d21 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 2. FUNCIONES DE CARGA Y PDF ---
 SHEET_ID = "14hOSakCs0yfF7WFB1nQAW0b_LqRRHkIxLzHY1u1V9PA"
 URL_ING = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0"
+
 
 @st.cache_data(ttl=60)
 def cargar_datos(url):
@@ -36,13 +54,14 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
+
 def generar_pdf_unico(resumen_menu, df_compra):
     verde_r, verde_g, verde_b = 38, 77, 33
 
     # Orientación Landscape (Horizontal) para la tabla del menú
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
-    
+
     dias_totales = list(resumen_menu.keys())
     momentos_lista = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
 
@@ -52,7 +71,8 @@ def generar_pdf_unico(resumen_menu, df_compra):
         pdf.add_page()
         pdf.set_font("helvetica", "B", 16)
         pdf.set_text_color(verde_r, verde_g, verde_b)
-        pdf.cell(0, 10, "CALENDARIO NUTRICIONAL SEMANAL", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        pdf.cell(0, 10, "CALENDARIO NUTRICIONAL SEMANAL",
+                 new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
         pdf.ln(5)
 
         dias_grupo = list(resumen_menu.keys())
@@ -64,9 +84,11 @@ def generar_pdf_unico(resumen_menu, df_compra):
         pdf.set_font("helvetica", "B", 10)
         pdf.set_fill_color(verde_r, verde_g, verde_b)
         pdf.set_text_color(255, 255, 255)
-        pdf.cell(ancho_momento, 10, "Momento", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+        pdf.cell(ancho_momento, 10, "Momento", 1, new_x=XPos.RIGHT,
+                 new_y=YPos.TOP, align='C', fill=True)
         for dia in dias_grupo:
-            pdf.cell(ancho_dia, 10, dia.split()[0], 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+            pdf.cell(ancho_dia, 10, dia.split()[
+                     0], 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
         pdf.ln()
 
         # Filas de la tabla
@@ -75,12 +97,14 @@ def generar_pdf_unico(resumen_menu, df_compra):
             y_inicio = pdf.get_y()
             pdf.set_font("helvetica", "B", 9)
             pdf.set_fill_color(240, 240, 240)
-            pdf.cell(ancho_momento, 25, m, 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
-            
+            pdf.cell(ancho_momento, 25, m, 1, new_x=XPos.RIGHT,
+                     new_y=YPos.TOP, align='C', fill=True)
+
             pdf.set_font("helvetica", "", 8)
             for dia in dias_grupo:
                 platos = resumen_menu[dia].get(m, [])
-                txt_platos = "\n".join(platos).encode('latin-1', 'replace').decode('latin-1')
+                txt_platos = "\n".join(platos).encode(
+                    'latin-1', 'replace').decode('latin-1')
                 x_act = pdf.get_x()
                 pdf.rect(x_act, y_inicio, ancho_dia, 25)
                 pdf.multi_cell(ancho_dia, 5, txt_platos, align='C')
@@ -88,62 +112,75 @@ def generar_pdf_unico(resumen_menu, df_compra):
             pdf.set_y(y_inicio + 25)
 
     # --- PÁGINA 2: PLAN DETALLADO (Vertical) ---
-    pdf.add_page(orientation='P') # Cambiamos a Vertical
+    pdf.add_page(orientation='P')  # Cambiamos a Vertical
     pdf.set_font("helvetica", "B", 16)
     pdf.set_text_color(verde_r, verde_g, verde_b)
-    pdf.cell(0, 10, "DESGLOSE POR DÍAS", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 10, "DESGLOSE POR DÍAS",
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(5)
 
     for dia, momentos_dict in resumen_menu.items():
         pdf.set_font("helvetica", "B", 11)
         pdf.set_fill_color(38, 77, 33)
         pdf.set_text_color(255, 255, 255)
-        pdf.cell(190, 8, f"  {dia.upper()}", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
+        pdf.cell(190, 8, f"  {dia.upper()}", border=1,
+                 new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
         pdf.set_text_color(0, 0, 0)
-        
+
         for m in momentos_lista:
             platos = momentos_dict.get(m, [])
             if platos:
                 pdf.set_font("helvetica", "B", 9)
                 pdf.cell(190, 6, f" {m}:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 pdf.set_font("helvetica", "", 10)
-                pdf.multi_cell(190, 6, " + ".join(platos).encode('latin-1', 'replace').decode('latin-1'), border='B', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.multi_cell(190, 6, " + ".join(platos).encode('latin-1', 'replace').decode(
+                    'latin-1'), border='B', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(3)
 
     # --- PÁGINA 3: LISTA DE LA COMPRA ---
     pdf.add_page(orientation='P')
     pdf.set_font("helvetica", "B", 16)
     pdf.set_text_color(verde_r, verde_g, verde_b)
-    pdf.cell(0, 10, "LISTA DE LA COMPRA", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 10, "LISTA DE LA COMPRA",
+             new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(5)
-    
+
     pdf.set_fill_color(verde_r, verde_g, verde_b)
     pdf.set_font("helvetica", "B", 10)
-    pdf.cell(110, 10, " Producto", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, fill=True)
-    pdf.cell(40, 10, " Cantidad", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
-    pdf.cell(40, 10, " Kcal", 1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C', fill=True)
+    pdf.cell(110, 10, " Producto", 1, new_x=XPos.RIGHT,
+             new_y=YPos.TOP, fill=True)
+    pdf.cell(40, 10, " Cantidad", 1, new_x=XPos.RIGHT,
+             new_y=YPos.TOP, align='C', fill=True)
+    pdf.cell(40, 10, " Kcal", 1, new_x=XPos.LMARGIN,
+             new_y=YPos.NEXT, align='C', fill=True)
 
     pdf.set_font("helvetica", "", 10)
     for _, fila in df_compra.iterrows():
         y_at = pdf.get_y()
         pdf.multi_cell(110, 10, f" {str(fila['Ingrediente'])[:45]}", border=1)
         pdf.set_xy(120, y_at)
-        pdf.cell(40, 10, f"{fila['Cantidad']:.2f} {fila['Unidad']}", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
-        pdf.cell(40, 10, f"{int(fila['Kcal_Totales'])}", 1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+        pdf.cell(40, 10, f"{fila['Cantidad']:.2f} {fila['Unidad']}",
+                 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
+        pdf.cell(40, 10, f"{int(fila['Kcal_Totales'])}", 1,
+                 new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
-    return bytes(pdf.output()) # Conversión crucial para evitar el error de bytes
+    # Conversión crucial para evitar el error de bytes
+    return bytes(pdf.output())
+
 
 # --- 3. SIDEBAR Y VALIDACIÓN ---
 with st.sidebar:
     st.header("👤 Perfil")
     f_ini = st.date_input("Inicio", datetime.date.today())
-    f_fin = st.date_input("Fin", datetime.date.today() + datetime.timedelta(days=6))
+    f_fin = st.date_input("Fin", datetime.date.today() +
+                          datetime.timedelta(days=6))
     st.divider()
-    
+
     # Pesos inicializados en 0
     peso = st.number_input("Peso Actual (Kg)", min_value=0, value=0, step=1)
-    peso_obj = st.number_input("Peso Objetivo (Kg)", min_value=0, value=0, step=1)
-    
+    peso_obj = st.number_input(
+        "Peso Objetivo (Kg)", min_value=0, value=0, step=1)
+
     # Variable para controlar si el perfil está completo
     perfil_completo = peso > 0 and peso_obj > 0
 
@@ -165,14 +202,15 @@ st.title("🌿 Gestión de Dietas")
 df_recetas = cargar_datos(URL_ING)
 
 if not df_recetas.empty:
-    DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    DIAS = ["Lunes", "Martes", "Miércoles",
+            "Jueves", "Viernes", "Sábado", "Domingo"]
     MOMENTOS = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
     c_plat = df_recetas.columns[0]
-    
+
     num_dias = (f_fin - f_ini).days + 1
     # Lista de llaves para verificar si se ha seleccionado alguna comida
     todas_las_keys = []
-    
+
     for i in range(num_dias):
         fecha = f_ini + datetime.timedelta(days=i)
         st.subheader(f"📅 {DIAS[fecha.weekday()]} {fecha.strftime('%d/%m')}")
@@ -185,7 +223,8 @@ if not df_recetas.empty:
     st.divider()
 
     # VALIDACIÓN: ¿Hay al menos una comida seleccionada?
-    hay_comidas = any(len(st.session_state.get(k, [])) > 0 for k in todas_las_keys)
+    hay_comidas = any(len(st.session_state.get(k, []))
+                      > 0 for k in todas_las_keys)
 
     # El botón se deshabilita si no hay comidas seleccionadas
     if st.button("📊 GENERAR INFORME NUTRICIONAL", disabled=not hay_comidas):
@@ -203,17 +242,24 @@ if not df_recetas.empty:
                     ingreds = df_recetas[df_recetas[c_plat] == p]
                     for _, row in ingreds.iterrows():
                         try:
-                            g = float(str(row[df_recetas.columns[2]]).replace(',', '.'))
-                            kc100 = float(str(row[df_recetas.columns[5]]).replace(',', '.'))
-                            kc_item = (g * kc100 / 100) if str(row[df_recetas.columns[3]]).lower() in ['g', 'ml'] else (g * kc100)
-                            acumulado.append({"Plato": p, "Ingrediente": row[df_recetas.columns[1]], "Cantidad": g, "Unidad": row[df_recetas.columns[3]], "Kcal_Totales": kc_item})
-                        except: continue
-        
+                            g = float(
+                                str(row[df_recetas.columns[2]]).replace(',', '.'))
+                            kc100 = float(
+                                str(row[df_recetas.columns[5]]).replace(',', '.'))
+                            kc_item = (
+                                g * kc100 / 100) if str(row[df_recetas.columns[3]]).lower() in ['g', 'ml'] else (g * kc100)
+                            acumulado.append(
+                                {"Plato": p, "Ingrediente": row[df_recetas.columns[1]], "Cantidad": g, "Unidad": row[df_recetas.columns[3]], "Kcal_Totales": kc_item})
+                        except:
+                            continue
+
         if acumulado:
-            df_final = pd.DataFrame(acumulado).groupby(['Ingrediente', 'Unidad']).agg({'Cantidad':'sum', 'Kcal_Totales':'sum'}).reset_index()
+            df_final = pd.DataFrame(acumulado).groupby(['Ingrediente', 'Unidad']).agg(
+                {'Cantidad': 'sum', 'Kcal_Totales': 'sum'}).reset_index()
             st.session_state["df_final"] = df_final
             st.session_state["acumulado"] = acumulado
-            st.session_state["pdf_bytes"] = generar_pdf_unico(resumen_kcal, df_final)
+            st.session_state["pdf_bytes"] = generar_pdf_unico(
+                resumen_kcal, df_final)
             st.rerun()
 
 # --- 6. RESULTADOS ---
@@ -222,8 +268,9 @@ res_pdf = st.session_state.get("pdf_bytes")
 
 if res_df is not None:
     st.header("📊 Resumen")
-    st.plotly_chart(px.bar(pd.DataFrame(st.session_state["acumulado"]), x='Kcal_Totales', y='Plato', color='Ingrediente', orientation='h'))
-    
+    st.plotly_chart(px.bar(pd.DataFrame(
+        st.session_state["acumulado"]), x='Kcal_Totales', y='Plato', color='Ingrediente', orientation='h'))
+
     if res_pdf:
         st.download_button(
             label="📥 Descargar Plan Nutricional (PDF)",
