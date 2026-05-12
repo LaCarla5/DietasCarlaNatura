@@ -5,11 +5,13 @@ from fpdf.enums import XPos, YPos
 import datetime
 import plotly.express as px
 
-# --- 1. CONFIGURACIÓN Y ESTILOS ---
+# --- CONFIGURACIÓN Y ESTILOS ---
+# Configuramos el título de la pestaña del navegador y el diseño ancho
 st.set_page_config(page_title="Dietas Carla Natura",
                    layout="wide", page_icon="🥗")
 
-# Inicialización de seguridad para evitar KeyError y errores de descarga
+# Inicializamos el "Session State". Esto es la memoria de la App. 
+# Evita que los datos se borren al interactuar con la página.
 if "df_final" not in st.session_state:
     st.session_state["df_final"] = None
 if "pdf_bytes" not in st.session_state:
@@ -71,7 +73,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. FUNCIONES DE CARGA Y PDF ---
+# --- FUNCIONES DE CARGA Y PDF ---
 SHEET_ID = "14hOSakCs0yfF7WFB1nQAW0b_LqRRHkIxLzHY1u1V9PA"
 URL_ING = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0"
 
