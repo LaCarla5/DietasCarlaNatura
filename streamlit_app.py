@@ -1,102 +1,33 @@
-# Usar StreamLit
 import streamlit as st
 import pandas as pd
-# Generar PDFs
 from fpdf import FPDF
-# Para la fecha y hora
+from fpdf.enums import XPos, YPos
 import datetime
-from io import BytesIO
-# Generar graficos
 import plotly.express as px
 
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
+# --- 1. CONFIGURACIÓN Y ESTILOS ---
 st.set_page_config(page_title="Dietas Carla Natura", layout="wide", page_icon="🥗")
-# Inicializar las llaves para evitar KeyError
-if "planificacion_pdf" not in st.session_state:
-    st.session_state["planificacion_pdf"] = None
-if "pdf_bytes" not in st.session_state:
-    st.session_state["pdf_bytes"] = None
+
+# Inicialización de seguridad para evitar KeyError y errores de descarga
 if "df_final" not in st.session_state:
     st.session_state["df_final"] = None
+if "pdf_bytes" not in st.session_state:
+    st.session_state["pdf_bytes"] = None
+if "acumulado" not in st.session_state:
+    st.session_state["acumulado"] = None
 
 st.markdown("""
 <style>
-    .stButton>button { 
-        background-color: #264d21; 
-        color: white; 
-        border-radius: 10px; 
-        font-weight: bold; 
-        width: 100%; 
-    }
-            
-    .stMetric { 
-        background-color: #ffffff; 
-        padding: 15px; 
-        border-radius: 10px; 
-        border-left: 5px solid #264d21; 
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
-    }
-    
+    .stButton>button { background-color: #264d21; color: white; border-radius: 10px; font-weight: bold; }
     h1, h3 { color: #264d21; }
-
-    [data-testid="stMetricLabel"] p {
-        color: #264d21 !important;
-        font-weight: bold !important;
-        font-size: 1.1rem;
-    }
-
-    [data-testid="stMetricValue"] {
-        color: #264d21 !important;
-    }
-
-    [data-testid="stMetricDelta"] div {
-        color: #264d21 !important;
-    }
-
-    [data-testid="stMetricDelta"] svg {
-        fill: #264d21 !important;
-    }
-            
-    .overlay {
-        position: fixed;
-        top: 0;
-        left: 21rem; 
-        width: 100%;
-        height: 100%;
-        background-color: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(8px);
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-    }
-
-    span[data-baseweb="tag"] {
-        background-color: #264d21 !important;
-    }
-
-    div[data-baseweb="select"] {
-        border-color: #264d21 !important;
-    }
-
-    .mensaje-bloqueo {
-        background: white;
-        padding: 3rem;
-        border-radius: 20px;
-        border: 2px solid #264d21;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        max-width: 600px;
-        margin-top: 10%;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. CONEXIÓN Y CARGA DE DATOS ---
+# --- 2. FUNCIONES DE CARGA Y PDF ---
 SHEET_ID = "14hOSakCs0yfF7WFB1nQAW0b_LqRRHkIxLzHY1u1V9PA"
 URL_ING = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid=0"
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=60)
 def cargar_datos(url):
     try:
         df = pd.read_csv(url)
@@ -104,345 +35,192 @@ def cargar_datos(url):
         return df.dropna(how='all')
     except:
         return pd.DataFrame()
-def generar_pdf_planificacion(resumen_menu):
+
+def generar_pdf_unico(resumen_menu, df_compra):
+    # Orientación Landscape (Horizontal) para la tabla del menú
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # 1. Preparar datos base
-    dias_totales = list(resumen_menu.keys())
-    momentos_lista = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
-    platos_unicos = set()
-
-    # --- BUCLE PARA GENERAR TABLAS (Cada 7 días) ---
-    for i in range(0, len(dias_totales), 7):
-        pdf.add_page() 
-        dias_grupo = dias_totales[i : i + 7] 
-        
-        pdf.set_font("Arial", "B", 16)
-        pdf.set_text_color(27, 69, 180) 
-        pdf.cell(w=0, h=10, txt=f"Tabla de Dieta - CarlaNatura (Parte {int(i/7) + 1})", border=0, ln=1, align="C")
-        pdf.ln(5)
-
-        ancho_momento = 30
-        ancho_dia = (277 - ancho_momento) / len(dias_grupo)
-
-        # Cabecera
-        pdf.set_font("Arial", "B", 10)
-        pdf.set_fill_color(27, 69, 180)
-        pdf.set_text_color(255, 255, 255)
-        pdf.cell(ancho_momento, 10, "Momento", 1, 0, 'C', True)
-        for dia in dias_grupo:
-            pdf.cell(ancho_dia, 10, dia, 1, 0, 'C', True)
-        pdf.ln()
-
-        # Filas de Momentos
-        pdf.set_text_color(0, 0, 0)
-        for m in momentos_lista:
-            altura_fila = 28 
-            y_inicio_fila = pdf.get_y()
-            
-            pdf.set_font("Arial", "B", 9)
-            pdf.set_fill_color(240, 240, 240)
-            pdf.cell(ancho_momento, altura_fila, m, 1, 0, 'C', True)
-            
-            for dia in dias_grupo:
-                platos = resumen_menu[dia].get(m, [])
-                for p in platos: platos_unicos.add(p)
-                
-                txt_platos = "\n".join(platos)
-                x, y = pdf.get_x(), pdf.get_y()
-                pdf.rect(x, y, ancho_dia, altura_fila)
-                
-                pdf.set_font("Arial", "B", 10)
-                num_lineas = len(platos) if platos else 1
-                altura_texto = num_lineas * 5 
-                offset_v = (altura_fila - altura_texto) / 2
-                
-                pdf.set_xy(x, y_inicio_fila + max(0, offset_v))
-                pdf.multi_cell(ancho_dia, 5, txt_platos.encode('latin-1', 'replace').decode('latin-1'), border=0, align='C')
-                
-                pdf.set_font("Arial", "", 8) 
-                pdf.set_xy(x + ancho_dia, y_inicio_fila)
-
-            # ESTA LÍNEA debe estar alineada con el 'for dia' (fuera de él)
-            pdf.set_y(y_inicio_fila + altura_fila)
-
-    # EL RETURN debe estar al final de toda la función
-    output = pdf.output(dest='S')
-    if isinstance(output, str):
-        return bytes(output, 'latin-1')
-    return bytes(output)
-
-def generar_pdf(resumen_menu, df_compra):
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # --- PÁGINA 1: PLANIFICACIÓN ---
+    # --- PÁGINA 1: TABLA SEMANAL HORIZONTAL ---
     pdf.add_page()
-    pdf.set_font("Arial", "B", 18)
+    pdf.set_font("helvetica", "B", 16)
+    pdf.set_text_color(27, 69, 180)
+    pdf.cell(0, 10, "CALENDARIO NUTRICIONAL SEMANAL", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.ln(5)
+
+    dias_grupo = list(resumen_menu.keys())
+    momentos_lista = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
+    ancho_momento = 30
+    ancho_dia = (277 - ancho_momento) / len(dias_grupo)
+
+    # Cabecera de la tabla
+    pdf.set_font("helvetica", "B", 10)
+    pdf.set_fill_color(27, 69, 180)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(ancho_momento, 10, "Momento", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+    for dia in dias_grupo:
+        pdf.cell(ancho_dia, 10, dia.split()[0], 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+    pdf.ln()
+
+    # Filas de la tabla
+    pdf.set_text_color(0, 0, 0)
+    for m in momentos_lista:
+        y_inicio = pdf.get_y()
+        pdf.set_font("helvetica", "B", 9)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(ancho_momento, 25, m, 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+        
+        pdf.set_font("helvetica", "", 8)
+        for dia in dias_grupo:
+            platos = resumen_menu[dia].get(m, [])
+            txt_platos = "\n".join(platos).encode('latin-1', 'replace').decode('latin-1')
+            x_act = pdf.get_x()
+            pdf.rect(x_act, y_inicio, ancho_dia, 25)
+            pdf.multi_cell(ancho_dia, 5, txt_platos, align='C')
+            pdf.set_xy(x_act + ancho_dia, y_inicio)
+        pdf.set_y(y_inicio + 25)
+
+    # --- PÁGINA 2: PLAN DETALLADO (Vertical) ---
+    pdf.add_page(orientation='P') # Cambiamos a Vertical
+    pdf.set_font("helvetica", "B", 16)
     pdf.set_text_color(38, 77, 33)
-    pdf.cell(190, 15, "PLAN NUTRICIONAL PERSONALIZADO", ln=True, align="C")
-    pdf.set_font("Arial", "I", 10)
-    pdf.cell(190, 10, f"Generado el: {datetime.date.today().strftime('%d/%m/%Y')}", ln=True, align="C")
+    pdf.cell(0, 10, "DESGLOSE POR DÍAS", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(5)
 
     for dia, momentos_dict in resumen_menu.items():
-        # Cabecera del día (Verde)
-        pdf.set_font("Arial", "B", 12)
+        pdf.set_font("helvetica", "B", 11)
         pdf.set_fill_color(38, 77, 33)
         pdf.set_text_color(255, 255, 255)
-        pdf.cell(190, 9, f"  {dia.upper()}", border=1, ln=True, fill=True)
-        
+        pdf.cell(190, 8, f"  {dia.upper()}", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
         pdf.set_text_color(0, 0, 0)
-        # Recorremos cada momento
-        for m in ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]:
+        
+        for m in momentos_lista:
             platos = momentos_dict.get(m, [])
             if platos:
-                # 1. Guardamos la posición Y actual
-                y_inicio = pdf.get_y()
-                
-                # 2. Escribimos el Momento (Columna izquierda)
-                pdf.set_font("Arial", "B", 10)
-                # IMPORTANTE: Usamos multi_cell pero sin ln=True para controlar el salto manualmente
-                pdf.multi_cell(40, 10, f"{m}:", border='L', align='L')
-                
-                # 3. Nos movemos a la derecha del momento para los platos
-                pdf.set_xy(pdf.get_x() + 50, y_inicio) 
-                
-                # 4. Escribimos los Platos (Columna derecha)
-                pdf.set_font("Arial", "", 10)
-                txt_platos = ", ".join(platos).encode('latin-1', 'replace').decode('latin-1')
-                # Aquí usamos ln=True para que el SIGUIENTE momento aparezca debajo
-                pdf.multi_cell(140, 10, txt_platos, border='R', align='L', ln=True)
-                
-                # 5. Dibujamos una línea sutil de separación inferior
-                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                pdf.set_font("helvetica", "B", 9)
+                pdf.cell(190, 6, f" {m}:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.set_font("helvetica", "", 10)
+                pdf.multi_cell(190, 6, " + ".join(platos).encode('latin-1', 'replace').decode('latin-1'), border='B', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.ln(3)
 
-        pdf.ln(5) # Espacio extra tras cerrar el día
-
-    # --- PÁGINA 2: LISTA DE COMPRA ---
+    # --- PÁGINA 3: LISTA DE LA COMPRA ---
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.set_text_color(38, 77, 33)
-    pdf.cell(190, 10, "DETALLE DE COMPRA Y CALORÍAS", ln=True, align="C")
+    pdf.set_font("helvetica", "B", 16)
+    pdf.cell(0, 10, "LISTA DE LA COMPRA", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(5)
     
-    # Cabecera tabla compra
     pdf.set_fill_color(240, 240, 240)
-    pdf.set_font("Arial", "B", 11)
-    pdf.cell(90, 10, " Producto", 1, 0, 'L', True)
-    pdf.cell(40, 10, " Cantidad", 1, 0, 'C', True)
-    pdf.cell(60, 10, " Energía", 1, 1, 'C', True)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(110, 10, " Producto", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, fill=True)
+    pdf.cell(40, 10, " Cantidad", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+    pdf.cell(40, 10, " Kcal", 1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C', fill=True)
 
-    pdf.set_font("Arial", "", 10)
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("helvetica", "", 10)
     for _, fila in df_compra.iterrows():
-        # Guardamos Y para que la fila sea uniforme
-        y_fila = pdf.get_y()
-        pdf.multi_cell(90, 10, f" {str(fila['Ingrediente'])[:45]}", border=1)
-        pdf.set_xy(100, y_fila) # 10 (margen) + 90 (ancho)
-        pdf.cell(40, 10, f"{fila['Cantidad']:.2f} {fila['Unidad']}", 1, 0, 'C')
-        pdf.cell(60, 10, f"{int(fila['Kcal_Totales'])} Kcal", 1, 1, 'C')
+        y_at = pdf.get_y()
+        pdf.multi_cell(110, 10, f" {str(fila['Ingrediente'])[:45]}", border=1)
+        pdf.set_xy(120, y_at)
+        pdf.cell(40, 10, f"{fila['Cantidad']:.2f} {fila['Unidad']}", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
+        pdf.cell(40, 10, f"{int(fila['Kcal_Totales'])}", 1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
-    # Retorno de bytes seguro
-    output = pdf.output(dest='S')
-    if isinstance(output, str):
-        return bytes(output, 'latin-1')
-    return bytes(output)
+    return bytes(pdf.output()) # Conversión crucial para evitar el error de bytes
 
-# --- 4. SIDEBAR (Captura de variables críticas) ---
+# --- 3. SIDEBAR Y VALIDACIÓN ---
 with st.sidebar:
-    st.header("👤 Perfil de Usuario")
+    st.header("👤 Perfil")
     f_ini = st.date_input("Inicio", datetime.date.today())
     f_fin = st.date_input("Fin", datetime.date.today() + datetime.timedelta(days=6))
     st.divider()
-    peso = st.number_input("Peso Actual (Kg)", min_value=0, value=0, step=1, format="%d")
-    pesoDeseado = st.number_input("Peso Objetivo (Kg)", min_value=0, value=0, step=1, format="%d")
-    diff = abs(peso - pesoDeseado)
+    
+    # Pesos inicializados en 0
+    peso = st.number_input("Peso Actual (Kg)", min_value=0, value=0, step=1)
+    peso_obj = st.number_input("Peso Objetivo (Kg)", min_value=0, value=0, step=1)
+    
+    # Variable para controlar si el perfil está completo
+    perfil_completo = peso > 0 and peso_obj > 0
 
-    if peso > pesoDeseado:
-    # Flecha hacia ABAJO (↓) para perder peso
-        st.metric(label="Meta", value=f"{diff} Kg", delta=f"- {diff} Kg (Perder)")
+    if perfil_completo:
+        diff = abs(peso - peso_obj)
+        delta_label = f"- {diff} Kg" if peso > peso_obj else f"+ {diff} Kg"
+        st.metric(label="Meta", value=f"{diff} Kg", delta=delta_label)
+    else:
+        st.warning("⚠️ Introduce pesos mayores a 0")
 
-    elif peso < pesoDeseado:
-    # Flecha hacia ARRIBA (↑) para ganar peso
-        st.metric(label="Meta", value=f"{diff} Kg", delta=f"+ {diff} Kg (Ganar)")
+# --- 4. BLOQUEO DE CONTENIDO ---
+if not perfil_completo:
+    st.title("🥗 Bienvenido a Carla Natura")
+    st.info("Para activar el gestor de comidas, por favor completa tu **Peso Actual** y **Peso Objetivo** en el menú de la izquierda.")
+    st.stop()
 
-
-# --- 2. CONTENEDOR DINÁMICO ---
-main_placeholder = st.empty()
-
-if peso == 0 or pesoDeseado == 0:
-    with main_placeholder.container():
-        st.markdown("<br><br>", unsafe_allow_html=True) # Espaciado inicial
-        
-        # Diseño de tarjeta de bienvenida
-        st.info("### 🌿 Bienvenido al Gestor de Dietas Carla Natura")
-        
-        col_img, col_txt = st.columns([1, 2])
-        with col_img:
-            # Aquí puedes poner un emoji grande o una imagen corporativa
-            st.markdown("<h1 style='font-size: 150px; text-align: center;'>🥗</h1>", unsafe_allow_html=True)
-        
-        with col_txt:
-            st.markdown("""
-                ### 👋 ¡Hola! Para empezar a trabajar:
-                Actualmente el panel de control está **DESACTIVADO**.
-                
-                **Pasos para activar:**
-                1. Mira hacia el **menú de la izquierda, si no lo ves tiene este simbolo >>** ⬅️.
-                2. Introduce tu **Peso Actual**.
-                3. Introduce tu **Peso Objetivo**.
-                
-                *Una vez completado, el calendario de comidas aparecerá automáticamente.*
-            """)
-            st.write("---")
-            st.button("Esperando datos del perfil...", disabled=True)
-            
-        st.stop() # Bloquea la carga de lo de abajo hasta que el peso sea > 0
-
-# --- 6. CUERPO DE LA APP ---
-st.title("🌿 Carla Natura: Gestión de Dietas")
-
+# --- 5. CUERPO DE LA APP ---
+st.title("🌿 Gestión de Dietas")
 df_recetas = cargar_datos(URL_ING)
-DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-momentos = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
 
 if not df_recetas.empty:
-    c_plat, c_ing, c_gram, c_uni, c_kc = df_recetas.columns[0], df_recetas.columns[1], df_recetas.columns[2], df_recetas.columns[3], df_recetas.columns[5]
-
+    DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    MOMENTOS = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
+    c_plat = df_recetas.columns[0]
+    
     num_dias = (f_fin - f_ini).days + 1
+    # Lista de llaves para verificar si se ha seleccionado alguna comida
+    todas_las_keys = []
+    
     for i in range(num_dias):
         fecha = f_ini + datetime.timedelta(days=i)
-        st.subheader(f"📅 {DIAS_SEMANA[fecha.weekday()]} {fecha.strftime('%d/%m')}")
+        st.subheader(f"📅 {DIAS[fecha.weekday()]} {fecha.strftime('%d/%m')}")
         cols = st.columns(5)
-        for j, m in enumerate(momentos):
+        for j, m in enumerate(MOMENTOS):
             key = f"sel_{fecha}_{m}"
-            st.session_state[key] = cols[j].multiselect(f"{m}", sorted(df_recetas[c_plat].unique()), key=f"widget_{key}")
+            todas_las_keys.append(key)
+            st.multiselect(m, sorted(df_recetas[c_plat].unique()), key=key)
 
-    st.markdown("<hr>", unsafe_allow_html=True)
+    st.divider()
 
-    # --- 1. BOTÓN DE GENERAR ---
-    if st.button("📊 GENERAR INFORME NUTRICIONAL"):
+    # VALIDACIÓN: ¿Hay al menos una comida seleccionada?
+    hay_comidas = any(len(st.session_state.get(k, [])) > 0 for k in todas_las_keys)
+
+    # El botón se deshabilita si no hay comidas seleccionadas
+    if st.button("📊 GENERAR INFORME NUTRICIONAL", disabled=not hay_comidas):
+        # Lógica de generación (se mantiene igual que antes)
         acumulado = []
         resumen_kcal = {}
-
-        # 1. Recorremos los días seleccionados
         for i in range(num_dias):
-            fecha_loop = f_ini + datetime.timedelta(days=i)
-            tag = f"{DIAS_SEMANA[fecha_loop.weekday()]} {fecha_loop.strftime('%d/%m')}"
+            fecha_l = f_ini + datetime.timedelta(days=i)
+            tag = f"{DIAS[fecha_l.weekday()]} {fecha_l.strftime('%d/%m')}"
             resumen_kcal[tag] = {}
-            
-            # 2. Recorremos los momentos (Desayuno, Comida...)
-            for m in momentos:
-                key = f"sel_{fecha_loop}_{m}"
-                seleccionados = st.session_state.get(key, [])
-                platos_formateados = []
-                
-                for plato in seleccionados:
-                    # Buscamos los ingredientes de ese plato en el Excel
-                    ingreds = df_recetas[df_recetas[c_plat] == plato]
-                    kcal_plato = 0
-                    
+            for m in MOMENTOS:
+                sel = st.session_state.get(f"sel_{fecha_l}_{m}", [])
+                resumen_kcal[tag][m] = sel
+                for p in sel:
+                    ingreds = df_recetas[df_recetas[c_plat] == p]
                     for _, row in ingreds.iterrows():
                         try:
-                            # Limpieza de números (por si vienen con coma del Excel)
-                            g = float(str(row[c_gram]).replace(',', '.'))
-                            kc100 = float(str(row[c_kc]).replace(',', '.'))
-                            
-                            # Lógica de cálculo: si es g/ml dividimos por 100, si es 'unidad' multiplicamos directo
-                            if str(row[c_uni]).lower() in ['g', 'ml']:
-                                kc_item = (g * kc100 / 100)
-                            else:
-                                kc_item = (g * kc100)
-                                
-                            kcal_plato += kc_item
-                            
-                            # Guardamos en la lista para la compra y los gráficos
-                            acumulado.append({
-                                "Plato": plato,
-                                "Ingrediente": row[c_ing], 
-                                "Cantidad": g, 
-                                "Unidad": row[c_uni],
-                                "Kcal_Totales": kc_item
-                            })
-                        except:
-                            continue
-                    
-                    platos_formateados.append(f"{plato} ({int(kcal_plato)} Kcal)")
-                
-                resumen_kcal[tag][m] = platos_formateados
-
-        # 3. Solo si hay datos, generamos los resultados
+                            g = float(str(row[df_recetas.columns[2]]).replace(',', '.'))
+                            kc100 = float(str(row[df_recetas.columns[5]]).replace(',', '.'))
+                            kc_item = (g * kc100 / 100) if str(row[df_recetas.columns[3]]).lower() in ['g', 'ml'] else (g * kc100)
+                            acumulado.append({"Plato": p, "Ingrediente": row[df_recetas.columns[1]], "Cantidad": g, "Unidad": row[df_recetas.columns[3]], "Kcal_Totales": kc_item})
+                        except: continue
+        
         if acumulado:
-            # Agrupamos para la tabla de compra consolidada
-            df_compra = pd.DataFrame(acumulado).groupby(['Ingrediente', 'Unidad']).agg({
-                'Cantidad': 'sum', 
-                'Kcal_Totales': 'sum'
-            }).reset_index()
-            
-            # --- GUARDAMOS TODO EN EL ESTADO (VITAL PARA QUE NO SE PIERDA) ---
-            st.session_state["df_final"] = df_compra
+            df_final = pd.DataFrame(acumulado).groupby(['Ingrediente', 'Unidad']).agg({'Cantidad':'sum', 'Kcal_Totales':'sum'}).reset_index()
+            st.session_state["df_final"] = df_final
             st.session_state["acumulado"] = acumulado
-            st.session_state["resumen_kcal"] = resumen_kcal
-            
-            # Generamos los PDFs usando las funciones que ya tienes arriba
-            st.session_state["pdf_bytes"] = generar_pdf(resumen_kcal, df_compra)
-            st.session_state["planificacion_pdf"] = generar_pdf_planificacion(resumen_kcal)
-            
-            st.success("✅ ¡Informe generado con éxito! Baja para ver los resultados.")
-            st.rerun() # Refresca la página para mostrar los gráficos
-        else:
-            st.warning("⚠️ No has seleccionado ningún plato en el calendario.")
+            st.session_state["pdf_bytes"] = generar_pdf_unico(resumen_kcal, df_final)
+            st.rerun()
 
-# --- 7. MOSTRAR RESULTADOS ---
-# Usamos .get() para que si la llave no existe, devuelva None en lugar de dar error
-hay_datos = st.session_state.get("df_final")
-datos_grafico = st.session_state.get("acumulado")
-pdf_compra = st.session_state.get("pdf_bytes")
-# IMPORTANTE: Asegúrate de que arriba guardas el PDF con este nombre exacto
-pdf_tabla = st.session_state.get("planificacion_pdf") 
+# --- 6. RESULTADOS ---
+res_df = st.session_state.get("df_final")
+res_pdf = st.session_state.get("pdf_bytes")
 
-if hay_datos is not None and datos_grafico is not None:
-    st.divider()
-    st.header("📊 Análisis de tu Dieta Personalizada")
+if res_df is not None:
+    st.header("📊 Resumen")
+    st.plotly_chart(px.bar(pd.DataFrame(st.session_state["acumulado"]), x='Kcal_Totales', y='Plato', color='Ingrediente', orientation='h'))
     
-    df_plot = pd.DataFrame(datos_grafico)
-    tab1, tab2 = st.tabs(["📈 Gráficos de Energía", "📋 Lista de Compra"])
-
-    with tab1:
-        col_a, col_b = st.columns(2)
-        with col_a:
-            fig_bar = px.bar(df_plot, x='Kcal_Totales', y='Plato', color='Ingrediente', orientation='h')
-            st.plotly_chart(fig_bar, theme="streamlit")
-        
-        with col_b:
-            fig_sun = px.sunburst(df_plot, path=['Plato', 'Ingrediente'], values='Kcal_Totales', color_continuous_scale='Greens')
-            st.plotly_chart(fig_sun, theme="streamlit")
-
-    with tab2:
-        st.subheader("🛒 Carrito de la Compra Consolidado")
-        st.dataframe(hay_datos, width="stretch")
-        
-        st.markdown("### 📥 Descargas Disponibles")
-        c1, c2 = st.columns(2)
-        
-        with c1:
-            if pdf_compra:
-                st.download_button(
-                    label="📥 Descargar Plan Nutricional",
-                    data=pdf_compra,
-                    file_name=f"Plan_{datetime.date.today()}.pdf",
-                    mime="application/pdf",
-                    key="dl_plan"
-                )
-        
-        with c2:
-            if pdf_tabla:
-                st.download_button(
-                    label="📅 Descargar Tabla Semanal",
-                    data=pdf_tabla, 
-                    file_name=f"Tabla_{datetime.date.today()}.pdf",
-                    mime="application/pdf",
-                    key="dl_tabla"
-                )
+    if res_pdf:
+        st.download_button(
+            label="📥 Descargar Plan Nutricional (PDF)",
+            data=res_pdf,
+            file_name=f"Dieta_{datetime.date.today()}.pdf",
+            mime="application/pdf",
+            key="btn_descarga_final"
+        )
