@@ -19,23 +19,54 @@ if "acumulado" not in st.session_state:
 
 st.markdown("""
 <style>
-    .stButton>button { background-color: #264d21; color: white; border-radius: 10px; font-weight: bold; }
-    h1, h3 { color: #264d21; }
-            
-    /* Color de fondo de la etiqueta seleccionada (el tag) */
-    span[data-baseweb="tag"] {
-        background-color: #264d21 !important; /* El verde corporativo */
-        color: white !important; /* Color del texto dentro de la etiqueta */
+    /* Botones generales */
+    .stButton>button { 
+        background-color: #264d21; 
+        color: white; 
+        border-radius: 10px; 
     }
+    
+    /* Títulos */
+    h1, h2, h3 { color: #264d21; }
 
-    /* Color del icono 'X' para borrar la selección */
+    /* CAMBIO DE COLOR EN SELECTS (MULTISELECT TAGS) */
+    span[data-baseweb="tag"] {
+        background-color: #264d21 !important;
+        color: white !important;
+    }
+    
+    /* Icono X de los tags */
     span[data-baseweb="tag"] svg {
         fill: white !important;
     }
 
-    /* Color del borde del cuadro de selección cuando pasas el ratón o haces clic */
-    div[data-baseweb="select"] > div:focus-within {
+    /* Borde del selector al hacer clic */
+    div[data-baseweb="select"] {
         border-color: #264d21 !important;
+    }
+    
+    /* Color de las métricas (Peso/Meta) */
+    [data-testid="stMetricValue"] {
+        color: #264d21 !important;
+    }
+    
+    /* Estilo para la tarjeta de la métrica */
+    [data-testid="stMetric"] {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #264d21; /* Tu verde */
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+    }
+
+    /* Forzar color verde en el valor y la etiqueta */
+    [data-testid="stMetricLabel"] p {
+        color: #264d21 !important;
+        font-weight: bold !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #264d21 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -69,26 +100,28 @@ def generar_pdf_unico(resumen_menu, df_compra):
     # controlar que casa semana cree otra hoja
     for i in range(0, len(dias_totales), 7):
         pdf.add_page()
+        # Seleccionamos solo los 7 días de esta semana
+        dias_semana = dias_totales[i : i + 7]
+        
         pdf.set_font("helvetica", "B", 16)
         pdf.set_text_color(verde_r, verde_g, verde_b)
-        pdf.cell(0, 10, "CALENDARIO NUTRICIONAL SEMANAL",
-                 new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        pdf.cell(0, 10, f"CALENDARIO NUTRICIONAL - SEMANA {int(i/7) + 1}", 
+                    new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
         pdf.ln(5)
 
-        dias_grupo = list(resumen_menu.keys())
-        momentos_lista = ["Desayuno", "Almuerzo", "Comida", "Merienda", "Cena"]
+        # Ajustamos el ancho de las columnas según cuántos días queden (por si la última semana es más corta)
         ancho_momento = 30
-        ancho_dia = (277 - ancho_momento) / len(dias_grupo)
+        ancho_dia = (277 - ancho_momento) / len(dias_semana)
 
-        # Cabecera de la tabla
+        # Cabecera de la tabla (VERDE)
         pdf.set_font("helvetica", "B", 10)
         pdf.set_fill_color(verde_r, verde_g, verde_b)
         pdf.set_text_color(255, 255, 255)
-        pdf.cell(ancho_momento, 10, "Momento", 1, new_x=XPos.RIGHT,
-                 new_y=YPos.TOP, align='C', fill=True)
-        for dia in dias_grupo:
-            pdf.cell(ancho_dia, 10, dia.split()[
-                     0], 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+        pdf.cell(ancho_momento, 10, "Momento", 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
+        
+        for dia in dias_semana:
+            # Usamos dia.split()[0] para que solo salga "Lunes", "Martes", etc.
+            pdf.cell(ancho_dia, 10, dia.split()[0], 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
         pdf.ln()
 
         # Filas de la tabla
@@ -96,19 +129,23 @@ def generar_pdf_unico(resumen_menu, df_compra):
         for m in momentos_lista:
             y_inicio = pdf.get_y()
             pdf.set_font("helvetica", "B", 9)
-            pdf.set_fill_color(240, 240, 240)
-            pdf.cell(ancho_momento, 25, m, 1, new_x=XPos.RIGHT,
-                     new_y=YPos.TOP, align='C', fill=True)
+            pdf.set_fill_color(240, 240, 240) # Gris clarito para los momentos
+            pdf.cell(ancho_momento, 25, m, 1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C', fill=True)
 
             pdf.set_font("helvetica", "", 8)
-            for dia in dias_grupo:
+            for dia in dias_semana:
                 platos = resumen_menu[dia].get(m, [])
-                txt_platos = "\n".join(platos).encode(
-                    'latin-1', 'replace').decode('latin-1')
+                txt_platos = "\n".join(platos).encode('latin-1', 'replace').decode('latin-1')
+                
                 x_act = pdf.get_x()
+                # Dibujamos el rectángulo de la celda
                 pdf.rect(x_act, y_inicio, ancho_dia, 25)
+                # Multi_cell para que el texto se ajuste dentro
                 pdf.multi_cell(ancho_dia, 5, txt_platos, align='C')
+                # Volvemos a la posición X para la siguiente columna, manteniendo la Y de la fila
                 pdf.set_xy(x_act + ancho_dia, y_inicio)
+            
+            # Al terminar la fila de platos, bajamos la Y para el siguiente momento
             pdf.set_y(y_inicio + 25)
 
     # --- PÁGINA 2: PLAN DETALLADO (Vertical) ---
@@ -140,13 +177,18 @@ def generar_pdf_unico(resumen_menu, df_compra):
     # --- PÁGINA 3: LISTA DE LA COMPRA ---
     pdf.add_page(orientation='P')
     pdf.set_font("helvetica", "B", 16)
+    
+    # 1. Título de la hoja (Texto en Verde)
     pdf.set_text_color(verde_r, verde_g, verde_b)
     pdf.cell(0, 10, "LISTA DE LA COMPRA",
              new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(5)
 
+    # 2. Cabecera de la tabla (Fondo Verde, Texto Blanco)
     pdf.set_fill_color(verde_r, verde_g, verde_b)
+    pdf.set_text_color(255, 255, 255) # <--- Texto Blanco para el fondo verde
     pdf.set_font("helvetica", "B", 10)
+    
     pdf.cell(110, 10, " Producto", 1, new_x=XPos.RIGHT,
              new_y=YPos.TOP, fill=True)
     pdf.cell(40, 10, " Cantidad", 1, new_x=XPos.RIGHT,
@@ -154,17 +196,23 @@ def generar_pdf_unico(resumen_menu, df_compra):
     pdf.cell(40, 10, " Kcal", 1, new_x=XPos.LMARGIN,
              new_y=YPos.NEXT, align='C', fill=True)
 
+    # 3. Cuerpo de la tabla (Resetear a Texto Negro para que se vea en el blanco)
+    pdf.set_text_color(0, 0, 0) # <--- VOLVEMOS AL NEGRO (o usa verde_r, g, b si prefieres)
     pdf.set_font("helvetica", "", 10)
+    
     for _, fila in df_compra.iterrows():
         y_at = pdf.get_y()
+        # Dibujamos la celda de ingrediente
         pdf.multi_cell(110, 10, f" {str(fila['Ingrediente'])[:45]}", border=1)
+        
+        # Reposicionamos para las columnas de cantidad y kcal
         pdf.set_xy(120, y_at)
         pdf.cell(40, 10, f"{fila['Cantidad']:.2f} {fila['Unidad']}",
                  1, new_x=XPos.RIGHT, new_y=YPos.TOP, align='C')
         pdf.cell(40, 10, f"{int(fila['Kcal_Totales'])}", 1,
                  new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
 
-    # Conversión crucial para evitar el error de bytes
+    # Conversión de seguridad
     return bytes(pdf.output())
 
 
@@ -185,13 +233,38 @@ with st.sidebar:
     perfil_completo = peso > 0 and peso_obj > 0
 
     if perfil_completo:
+        # Creamos dos columnas para mostrar los pesos actuales de forma limpia
+        c1, c2 = st.columns(2)
+        c1.metric("Peso Actual", f"{peso} Kg")
+        c2.metric("Objetivo", f"{peso_obj} Kg")
+        
+        st.divider()
+        
+        # Cálculo de la diferencia
         diff = abs(peso - peso_obj)
-        delta_label = f"- {diff} Kg" if peso > peso_obj else f"+ {diff} Kg"
-        st.metric(label="Meta", value=f"{diff} Kg", delta=delta_label)
+        
+        if peso > peso_obj:
+            # Caso: Perder peso
+            st.metric(
+                label="Meta Final (A perder)", 
+                value=f"{diff} Kg", 
+                delta=f"- {diff} Kg", 
+                delta_color="normal" # Streamlit lo pondrá rojo automáticamente, o puedes usar CSS para cambiarlo
+            )
+        elif peso < peso_obj:
+            # Caso: Ganar peso (Músculo)
+            st.metric(
+                label="Meta Final (A ganar)", 
+                value=f"{diff} Kg", 
+                delta=f"+ {diff} Kg", 
+                delta_color="normal" # Streamlit lo pondrá verde
+            )
+        else:
+            st.success("¡Estás en tu peso ideal! Mantenimiento activo. 🌿")
     else:
-        st.warning("⚠️ Introduce pesos mayores a 0")
+        st.warning("⚠️ Introduce pesos mayores a 0 para calcular tu meta.")
 
-# --- 4. BLOQUEO DE CONTENIDO ---
+# --- BLOQUEO DE CONTENIDO ---
 if not perfil_completo:
     st.title("🥗 Bienvenido a Carla Natura")
     st.info("Para activar el gestor de comidas, por favor completa tu **Peso Actual** y **Peso Objetivo** en el menú de la izquierda.")
